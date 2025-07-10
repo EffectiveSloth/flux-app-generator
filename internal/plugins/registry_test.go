@@ -20,6 +20,11 @@ func TestNewRegistry(t *testing.T) {
 	if !registry.Exists("externalsecret") {
 		t.Errorf("expected externalsecret plugin to be registered by default")
 	}
+
+	// Check if ImageUpdate plugin is registered
+	if !registry.Exists("imageupdate") {
+		t.Errorf("expected imageupdate plugin to be registered by default")
+	}
 }
 
 func TestRegistry_Register(t *testing.T) {
@@ -260,7 +265,7 @@ func TestRegistry_BuiltinPlugins(t *testing.T) {
 	registry := NewRegistry()
 
 	// Test that all expected built-in plugins are registered
-	expectedPlugins := []string{"externalsecret"}
+	expectedPlugins := []string{"externalsecret", "imageupdate"}
 
 	for _, pluginName := range expectedPlugins {
 		if !registry.Exists(pluginName) {

@@ -27,6 +27,11 @@ func (r *Registry) registerBuiltinPlugins() {
 	if err := r.Register(NewExternalSecretPlugin()); err != nil {
 		panic(fmt.Sprintf("failed to register built-in externalsecret plugin: %v", err))
 	}
+	
+	// Register the ImageUpdate plugin
+	if err := r.Register(NewImageUpdatePlugin()); err != nil {
+		panic(fmt.Sprintf("failed to register built-in imageupdate plugin: %v", err))
+	}
 }
 
 // Register adds a plugin to the registry.
