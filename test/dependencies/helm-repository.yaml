@@ -1,0 +1,8 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: test
+  namespace: test
+spec:
+  interval: 5m
+  url: https://helm.datadoghq.com 

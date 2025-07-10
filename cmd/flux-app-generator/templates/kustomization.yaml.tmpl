@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - dependencies/helm-repository.yaml
+  - release/helm-release.yaml
+
+configMapGenerator:
+  - name: {{.AppName}}-values
+    files:
+      - values.yaml=release/helm-values.yaml
+    options:
+      disableNameSuffixHash: true 

@@ -1,0 +1,19 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: test
+  namespace: test
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: datadog-operator
+      version: '2.9.2'
+      sourceRef:
+        kind: HelmRepository
+        name: test
+      interval: 5m
+  valuesFrom:
+    - kind: ConfigMap
+      name: test-values
+      valuesKey: values.yaml 
