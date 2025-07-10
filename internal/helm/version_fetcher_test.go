@@ -1,6 +1,7 @@
 package helm
 
 import (
+	"fmt"
 	"sort"
 	"testing"
 )
@@ -154,4 +155,119 @@ func TestVersionFetcher_FetchChartVersions(t *testing.T) {
 
 	t.Logf("Found %d versions for chart %s", len(versions), chartName)
 	t.Logf("Latest version: %s (App: %s)", versions[0].ChartVersion, versions[0].AppVersion)
+}
+
+func mockFetchIndexYAML(repoURL string) (*IndexYAML, error) {
+	return &IndexYAML{
+		Entries: map[string][]struct {
+			Version     string `yaml:"version"`
+			AppVersion  string `yaml:"appVersion"`
+			Description string `yaml:"description"`
+		}{
+			"airbyte": {
+				{Version: "1.2.3", AppVersion: "2.3.4", Description: "desc1"},
+				{Version: "1.2.2", AppVersion: "2.3.3", Description: "desc2"},
+			},
+		},
+	}, nil
+}
+
+func mockFetchIndexYAML_Empty(repoURL string) (*IndexYAML, error) {
+	return &IndexYAML{Entries: map[string][]struct {
+		Version     string `yaml:"version"`
+		AppVersion  string `yaml:"appVersion"`
+		Description string `yaml:"description"`
+	}{}}, nil
+}
+
+func mockFetchIndexYAML_NoChart(repoURL string) (*IndexYAML, error) {
+	return &IndexYAML{Entries: map[string][]struct {
+		Version     string `yaml:"version"`
+		AppVersion  string `yaml:"appVersion"`
+		Description string `yaml:"description"`
+	}{
+		"other": {{Version: "0.1.0", AppVersion: "0.1.0", Description: "other chart"}},
+	}}, nil
+}
+
+func mockFetchIndexYAML_Error(repoURL string) (*IndexYAML, error) {
+	return nil, fmt.Errorf("mock error")
+}
+
+func TestVersionFetcher_FetchLatestVersion(t *testing.T) {
+	vf := NewMockVersionFetcher(mockFetchIndexYAML)
+	latest, err := vf.FetchLatestVersion("mock", "airbyte")
+	if err != nil {
+		t.Fatalf("Failed to fetch latest version: %v", err)
+	}
+	if latest.ChartVersion != "1.2.3" {
+		t.Errorf("Expected chart version '1.2.3', got '%s'", latest.ChartVersion)
+	}
+	if latest.AppVersion != "2.3.4" {
+		t.Errorf("Expected app version '2.3.4', got '%s'", latest.AppVersion)
+	}
+}
+
+func TestVersionFetcher_FetchLatestVersion_NoVersions(t *testing.T) {
+	vf := NewMockVersionFetcher(mockFetchIndexYAML_Empty)
+	_, err := vf.FetchLatestVersion("mock", "airbyte")
+	if err == nil {
+		t.Error("Expected error for no versions")
+	}
+	expectedErr := "chart 'airbyte' not found in repository"
+	if err.Error() != expectedErr {
+		t.Errorf("Expected error '%s', got '%s'", expectedErr, err.Error())
+	}
+}
+
+func TestVersionFetcher_ValidateChartExists(t *testing.T) {
+	vf := NewMockVersionFetcher(mockFetchIndexYAML)
+	err := vf.ValidateChartExists("mock", "airbyte")
+	if err != nil {
+		t.Errorf("Expected no error for existing chart: %v", err)
+	}
+}
+
+func TestVersionFetcher_ValidateChartExists_NotFound(t *testing.T) {
+	vf := NewMockVersionFetcher(mockFetchIndexYAML_NoChart)
+	err := vf.ValidateChartExists("mock", "airbyte")
+	if err == nil {
+		t.Error("Expected error for non-existent chart")
+	}
+	expectedErr := "chart 'airbyte' not found in repository"
+	if err.Error() != expectedErr {
+		t.Errorf("Expected error '%s', got '%s'", expectedErr, err.Error())
+	}
+}
+
+func TestVersionFetcher_ListCharts_Error(t *testing.T) {
+	vf := NewMockVersionFetcher(mockFetchIndexYAML_Error)
+	_, err := vf.ListCharts("mock")
+	if err == nil {
+		t.Error("Expected error from mock fetchIndexYAML in ListCharts")
+	}
+}
+
+func TestVersionFetcher_FetchChartVersions_Error(t *testing.T) {
+	vf := NewMockVersionFetcher(mockFetchIndexYAML_Error)
+	_, err := vf.FetchChartVersions("mock", "airbyte")
+	if err == nil {
+		t.Error("Expected error from mock fetchIndexYAML in FetchChartVersions")
+	}
+}
+
+func TestVersionFetcher_ValidateChartExists_Error(t *testing.T) {
+	vf := NewMockVersionFetcher(mockFetchIndexYAML_Error)
+	err := vf.ValidateChartExists("mock", "airbyte")
+	if err == nil {
+		t.Error("Expected error from mock fetchIndexYAML in ValidateChartExists")
+	}
+}
+
+func TestVersionFetcher_FetchLatestVersion_Error(t *testing.T) {
+	vf := NewMockVersionFetcher(mockFetchIndexYAML_Error)
+	_, err := vf.FetchLatestVersion("mock", "airbyte")
+	if err == nil {
+		t.Error("Expected error from mock fetchIndexYAML in FetchLatestVersion")
+	}
 }

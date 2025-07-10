@@ -27,12 +27,21 @@ type ChartVersion struct {
 	DisplayString string
 }
 
+type fetchIndexYAMLFunc func(repoURL string) (*IndexYAML, error)
+
 // VersionFetcher handles fetching chart versions from Helm repositories.
-type VersionFetcher struct{}
+type VersionFetcher struct {
+	fetchIndex fetchIndexYAMLFunc
+}
 
 // NewVersionFetcher creates a new version fetcher.
 func NewVersionFetcher() *VersionFetcher {
-	return &VersionFetcher{}
+	return &VersionFetcher{fetchIndex: fetchIndexYAML}
+}
+
+// NewMockVersionFetcher creates a VersionFetcher with a custom fetchIndex function (for testing).
+func NewMockVersionFetcher(mock fetchIndexYAMLFunc) *VersionFetcher {
+	return &VersionFetcher{fetchIndex: mock}
 }
 
 func fetchIndexYAML(repoURL string) (*IndexYAML, error) {
@@ -83,7 +92,7 @@ func fetchIndexYAML(repoURL string) (*IndexYAML, error) {
 
 // ListCharts fetches all chart names and their descriptions from a Helm repository.
 func (vf *VersionFetcher) ListCharts(repoURL string) ([]struct{ Name, Description string }, error) {
-	idx, err := fetchIndexYAML(repoURL)
+	idx, err := vf.fetchIndex(repoURL)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +111,7 @@ func (vf *VersionFetcher) ListCharts(repoURL string) ([]struct{ Name, Descriptio
 
 // FetchChartVersions fetches available versions for a chart from a repository.
 func (vf *VersionFetcher) FetchChartVersions(repoURL, chartName string) ([]ChartVersion, error) {
-	idx, err := fetchIndexYAML(repoURL)
+	idx, err := vf.fetchIndex(repoURL)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +152,7 @@ func (vf *VersionFetcher) FetchLatestVersion(repoURL, chartName string) (ChartVe
 
 // ValidateChartExists checks if a chart exists in the repository.
 func (vf *VersionFetcher) ValidateChartExists(repoURL, chartName string) error {
-	idx, err := fetchIndexYAML(repoURL)
+	idx, err := vf.fetchIndex(repoURL)
 	if err != nil {
 		return err
 	}
