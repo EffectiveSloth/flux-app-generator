@@ -9,7 +9,7 @@ import (
 	"github.com/EffectiveSloth/flux-app-generator/internal/types"
 )
 
-// Import embedded templates from main package
+// Import embedded templates from main package.
 var (
 	HelmRepositoryTemplate string
 	HelmReleaseTemplate    string
@@ -27,7 +27,12 @@ func generateFromTemplateString(templateStr, outputPath string, data interface{}
 	if err != nil {
 		return fmt.Errorf("failed to create %s: %w", outputPath, err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			// Log the error but don't return it as the main operation succeeded
+			fmt.Printf("Warning: failed to close file %s: %v\n", outputPath, closeErr)
+		}
+	}()
 
 	return tmpl.Execute(file, data)
 }
@@ -64,7 +69,7 @@ func generateKustomization(config *types.AppConfig, appDir string) error {
 	)
 }
 
-// GenerateFluxStructure is the main entrypoint for generating the Flux structure
+// GenerateFluxStructure is the main entrypoint for generating the Flux structure.
 func GenerateFluxStructure(config *types.AppConfig) error {
 	// Create app directory
 	appDir := config.AppName
@@ -96,4 +101,4 @@ func GenerateFluxStructure(config *types.AppConfig) error {
 	fmt.Printf("\n✅ Generated Flux structure for '%s' in namespace '%s'\n", config.AppName, config.Namespace)
 	fmt.Printf("📁 Files created in directory: %s/\n", appDir)
 	return nil
-} 
+}

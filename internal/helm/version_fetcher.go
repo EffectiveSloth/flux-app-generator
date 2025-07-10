@@ -1,9 +1,11 @@
 package helm
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"sort"
 
 	"gopkg.in/yaml.v3"
@@ -17,33 +19,54 @@ type IndexYAML struct {
 	} `yaml:"entries"`
 }
 
-// ChartVersion represents a chart version with metadata
+// ChartVersion represents a chart version with metadata.
 type ChartVersion struct {
-	ChartVersion   string
-	AppVersion     string
-	Description    string
-	DisplayString  string
+	ChartVersion  string
+	AppVersion    string
+	Description   string
+	DisplayString string
 }
 
-// VersionFetcher handles fetching chart versions from Helm repositories
+// VersionFetcher handles fetching chart versions from Helm repositories.
 type VersionFetcher struct{}
 
-// NewVersionFetcher creates a new version fetcher
+// NewVersionFetcher creates a new version fetcher.
 func NewVersionFetcher() *VersionFetcher {
 	return &VersionFetcher{}
 }
 
 func fetchIndexYAML(repoURL string) (*IndexYAML, error) {
+	// Validate the URL to prevent potential security issues.
+	parsedURL, err := url.Parse(repoURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid repository URL: %w", err)
+	}
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return nil, fmt.Errorf("unsupported URL scheme: %s", parsedURL.Scheme)
+	}
+
 	indexURL := repoURL
 	if indexURL[len(indexURL)-1] != '/' {
 		indexURL += "/"
 	}
 	indexURL += "index.yaml"
-	resp, err := http.Get(indexURL)
+
+	ctx := context.Background()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, indexURL, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request for index.yaml: %w", err)
+	}
+	client := &http.Client{}
+	resp, err := client.Do(req) // #nosec G107
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch index.yaml: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// Log the error but don't return it as the main operation succeeded
+			fmt.Printf("Warning: failed to close response body: %v\n", closeErr)
+		}
+	}()
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("failed to fetch index.yaml: status %d", resp.StatusCode)
 	}
@@ -58,7 +81,7 @@ func fetchIndexYAML(repoURL string) (*IndexYAML, error) {
 	return &idx, nil
 }
 
-// ListCharts fetches all chart names and their descriptions from a Helm repository
+// ListCharts fetches all chart names and their descriptions from a Helm repository.
 func (vf *VersionFetcher) ListCharts(repoURL string) ([]struct{ Name, Description string }, error) {
 	idx, err := fetchIndexYAML(repoURL)
 	if err != nil {
@@ -70,14 +93,14 @@ func (vf *VersionFetcher) ListCharts(repoURL string) ([]struct{ Name, Descriptio
 		if len(entries) > 0 {
 			desc = entries[0].Description
 		}
-		charts = append(charts, struct{ Name, Description string }{ Name: name, Description: desc })
+		charts = append(charts, struct{ Name, Description string }{Name: name, Description: desc})
 	}
-	// Sort charts by name
+	// Sort charts by name.
 	sort.Slice(charts, func(i, j int) bool { return charts[i].Name < charts[j].Name })
 	return charts, nil
 }
 
-// FetchChartVersions fetches available versions for a chart from a repository
+// FetchChartVersions fetches available versions for a chart from a repository.
 func (vf *VersionFetcher) FetchChartVersions(repoURL, chartName string) ([]ChartVersion, error) {
 	idx, err := fetchIndexYAML(repoURL)
 	if err != nil {
@@ -99,14 +122,14 @@ func (vf *VersionFetcher) FetchChartVersions(repoURL, chartName string) ([]Chart
 			})
 		}
 	}
-	// Sort versions (newest first, lexicographically)
+	// Sort versions (newest first, lexicographically).
 	sort.Slice(versions, func(i, j int) bool {
 		return versions[i].ChartVersion > versions[j].ChartVersion
 	})
 	return versions, nil
 }
 
-// FetchLatestVersion fetches the latest version for a chart
+// FetchLatestVersion fetches the latest version for a chart.
 func (vf *VersionFetcher) FetchLatestVersion(repoURL, chartName string) (ChartVersion, error) {
 	versions, err := vf.FetchChartVersions(repoURL, chartName)
 	if err != nil {
@@ -118,7 +141,7 @@ func (vf *VersionFetcher) FetchLatestVersion(repoURL, chartName string) (ChartVe
 	return versions[0], nil
 }
 
-// ValidateChartExists checks if a chart exists in the repository
+// ValidateChartExists checks if a chart exists in the repository.
 func (vf *VersionFetcher) ValidateChartExists(repoURL, chartName string) error {
 	idx, err := fetchIndexYAML(repoURL)
 	if err != nil {
@@ -128,4 +151,4 @@ func (vf *VersionFetcher) ValidateChartExists(repoURL, chartName string) error {
 		return fmt.Errorf("chart '%s' not found in repository", chartName)
 	}
 	return nil
-} 
+}

@@ -1,84 +1,78 @@
+version: "2"
 run:
-  timeout: 5m
   go: "1.24"
-
 linters:
   enable:
-    - gofmt
-    - goimports
-    - govet
-    - errcheck
-    - staticcheck
-    - gosimple
-    - ineffassign
-    - unused
-    - misspell
-    - gosec
-    - gocyclo
     - dupl
     - goconst
     - gocritic
+    - gocyclo
     - godot
     - goheader
-    - gomnd
     - goprintffuncname
     - gosec
-    - gosimple
-    - govet
-    - ineffassign
     - misspell
     - nakedret
     - noctx
     - nolintlint
     - rowserrcheck
-    - staticcheck
-    - structcheck
-    - stylecheck
-    - typecheck
     - unconvert
     - unparam
-    - unused
-    - varcheck
     - whitespace
-
-linters-settings:
-  gocyclo:
-    min-complexity: 15
-  dupl:
-    threshold: 100
-  goconst:
-    min-len: 3
-    min-occurrences: 3
-  gomnd:
-    checks: argument,case,condition,operation,return,assign
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-    disabled-checks:
-      - dupImport
-      - ifElseChain
-      - octalLiteral
-      - whyNoLint
-      - wrapperFunc
-
-issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - gomnd
-        - gocyclo
-        - dupl
-        - goconst
-    - path: cmd/
-      linters:
-        - gocyclo
-        - dupl
-        - goconst
-    - linters:
-        - gosec
-      text: "G404: Use of weak random number generator"
-      path: internal/helm/version_fetcher_test.go 
+  settings:
+    dupl:
+      threshold: 100
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+    gocritic:
+      disabled-checks:
+        - dupImport
+        - ifElseChain
+        - octalLiteral
+        - whyNoLint
+        - wrapperFunc
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+    gocyclo:
+      min-complexity: 15
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - dupl
+          - goconst
+          - gocyclo
+        path: _test\.go
+      - linters:
+          - dupl
+          - goconst
+          - gocyclo
+        path: cmd/
+      - linters:
+          - gosec
+        path: internal/helm/version_fetcher_test.go
+        text: 'G404: Use of weak random number generator'
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

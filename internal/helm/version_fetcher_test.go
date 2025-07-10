@@ -31,15 +31,15 @@ func TestChartVersion_Sorting(t *testing.T) {
 func TestChartVersion_DisplayString(t *testing.T) {
 	chartName := "vantage-kubernetes-agent"
 	version := ChartVersion{
-		ChartVersion: "1.1.2",
-		AppVersion:   "1.0.28",
-		Description:  "Provisions the Vantage Kubernetes agent.",
+		ChartVersion:  "1.1.2",
+		AppVersion:    "1.0.28",
+		Description:   "Provisions the Vantage Kubernetes agent.",
 		DisplayString: chartName + "\t" + "1.1.2" + "\t" + "1.0.28" + "\t" + "Provisions the Vantage Kubernetes agent.",
 	}
 
 	// Test DisplayString generation
 	expected := chartName + "\t" + version.ChartVersion + "\t" + version.AppVersion + "\t" + version.Description
-	
+
 	if version.DisplayString != expected {
 		t.Errorf("DisplayString mismatch.\nExpected: %s\nGot:      %s", expected, version.DisplayString)
 	}
@@ -131,7 +131,7 @@ func TestVersionFetcher_FetchChartVersions(t *testing.T) {
 	// Test that versions are sorted (newest first)
 	if len(versions) > 1 {
 		if versions[0].ChartVersion <= versions[1].ChartVersion {
-			t.Errorf("Versions not sorted correctly. Expected %s > %s", 
+			t.Errorf("Versions not sorted correctly. Expected %s > %s",
 				versions[0].ChartVersion, versions[1].ChartVersion)
 		}
 	}
@@ -154,4 +154,4 @@ func TestVersionFetcher_FetchChartVersions(t *testing.T) {
 
 	t.Logf("Found %d versions for chart %s", len(versions), chartName)
 	t.Logf("Latest version: %s (App: %s)", versions[0].ChartVersion, versions[0].AppVersion)
-} 
+}

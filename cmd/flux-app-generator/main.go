@@ -1,11 +1,12 @@
 package main
 
 import (
+	"embed"
 	"fmt"
 	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/EffectiveSloth/flux-app-generator/internal/generator"
@@ -13,49 +14,61 @@ import (
 	"github.com/EffectiveSloth/flux-app-generator/internal/types"
 )
 
-// Styles
+//go:embed templates
+var templatesFS embed.FS
+
+// loadTemplate loads a template from the embedded filesystem.
+func loadTemplate(name string) (string, error) {
+	data, err := templatesFS.ReadFile("templates/" + name)
+	if err != nil {
+		return "", fmt.Errorf("failed to load template %s: %w", name, err)
+	}
+	return string(data), nil
+}
+
+// Styles.
 var (
 	titleStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FAFAFA")).
-		Background(lipgloss.Color("#7D56F4")).
-		Padding(0, 1).
-		Bold(true)
+			Foreground(lipgloss.Color("#FAFAFA")).
+			Background(lipgloss.Color("#7D56F4")).
+			Padding(0, 1).
+			Bold(true)
 
 	subtitleStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#626262")).
-		Italic(true)
+			Foreground(lipgloss.Color("#626262")).
+			Italic(true)
 
 	selectedStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#7D56F4")).
-		Bold(true)
+			Foreground(lipgloss.Color("#7D56F4")).
+			Bold(true)
 
 	errorStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FF6B6B")).
-		Bold(true)
+			Foreground(lipgloss.Color("#FF6B6B")).
+			Bold(true)
 
 	successStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#51CF66")).
-		Bold(true)
+			Foreground(lipgloss.Color("#51CF66")).
+			Bold(true)
 
 	tableStyle = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#874BFD")).
-		Padding(1, 0)
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#874BFD")).
+			Padding(1, 0)
 
 	tableHeaderStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FAFAFA")).
-		Background(lipgloss.Color("#874BFD")).
-		Bold(true).
-		Padding(0, 1)
+				Foreground(lipgloss.Color("#FAFAFA")).
+				Background(lipgloss.Color("#874BFD")).
+				Bold(true).
+				Padding(0, 1)
 
 	tableRowStyle = lipgloss.NewStyle().
-		Padding(0, 1)
+			Padding(0, 1)
 
 	tableSelectedRowStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#7D56F4")).
-		Background(lipgloss.Color("#F0F0F0")).
-		Bold(true).
-		Padding(0, 1)
+				Foreground(lipgloss.Color("#7D56F4")).
+				Background(lipgloss.Color("#F0F0F0")).
+				Bold(true).
+				Padding(0, 1)
 )
 
 type step int
@@ -77,19 +90,19 @@ type chartInfo struct {
 }
 
 type model struct {
-	step         step
-	inputs       []textinput.Model
-	intervalOpts []string
-	intervalIdx  int
-	chartList    []chartInfo
-	chartIdx     int
-	chartVersions []helm.ChartVersion
-	versionIdx    int
-	versionPage   int // Add pagination for versions
-	pageSize      int // Number of versions per page
-	quitting     bool
-	result       string
-	config       *types.AppConfig
+	step           step
+	inputs         []textinput.Model
+	intervalOpts   []string
+	intervalIdx    int
+	chartList      []chartInfo
+	chartIdx       int
+	chartVersions  []helm.ChartVersion
+	versionIdx     int
+	versionPage    int // Add pagination for versions
+	pageSize       int // Number of versions per page
+	quitting       bool
+	result         string
+	config         *types.AppConfig
 	versionFetcher *helm.VersionFetcher
 }
 
@@ -112,29 +125,28 @@ func initialModel() model {
 	}
 
 	return model{
-		step:        stepAppName,
-		inputs:      inputs,
-		intervalOpts: []string{"1m", "5m", "10m", "30m", "1h"},
-		intervalIdx: 1,
-		chartList:   []chartInfo{},
-		chartIdx:    0,
-		chartVersions: []helm.ChartVersion{},
-		versionIdx: 0,
-		versionPage: 0,
-		pageSize:    10, // Show 10 versions per page
-		config:      &types.AppConfig{},
+		step:           stepAppName,
+		inputs:         inputs,
+		intervalOpts:   []string{"1m", "5m", "10m", "30m", "1h"},
+		intervalIdx:    1,
+		chartList:      []chartInfo{},
+		chartIdx:       0,
+		chartVersions:  []helm.ChartVersion{},
+		versionIdx:     0,
+		versionPage:    0,
+		pageSize:       10, // Show 10 versions per page
+		config:         &types.AppConfig{},
 		versionFetcher: helm.NewVersionFetcher(),
 	}
 }
 
-func (m model) Init() tea.Cmd {
+func (m *model) Init() tea.Cmd {
 	return textinput.Blink
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
+func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
 		case "ctrl+c", "esc":
 			m.quitting = true
 			return m, tea.Quit
@@ -204,11 +216,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.config.Interval = m.intervalOpts[m.intervalIdx]
 				// Immediately generate files when reaching stepDone
 				m.config.Values = make(map[string]interface{})
-				generator.HelmRepositoryTemplate = helmRepositoryTemplate
-				generator.HelmReleaseTemplate = helmReleaseTemplate
-				generator.HelmValuesTemplate = helmValuesTemplate
-				generator.KustomizationTemplate = kustomizationTemplate
-				err := generator.GenerateFluxStructure(m.config)
+
+				// Load templates from embedded filesystem
+				var err error
+				generator.HelmRepositoryTemplate, err = loadTemplate("helm-repository.yaml.tmpl")
+				if err != nil {
+					m.result = "Error loading template: " + err.Error()
+					return m, tea.Quit
+				}
+				generator.HelmReleaseTemplate, err = loadTemplate("helm-release.yaml.tmpl")
+				if err != nil {
+					m.result = "Error loading template: " + err.Error()
+					return m, tea.Quit
+				}
+				generator.HelmValuesTemplate, err = loadTemplate("helm-values.yaml.tmpl")
+				if err != nil {
+					m.result = "Error loading template: " + err.Error()
+					return m, tea.Quit
+				}
+				generator.KustomizationTemplate, err = loadTemplate("kustomization.yaml.tmpl")
+				if err != nil {
+					m.result = "Error loading template: " + err.Error()
+					return m, tea.Quit
+				}
+
+				err = generator.GenerateFluxStructure(m.config)
 				if err != nil {
 					m.result = "Error: " + err.Error()
 				} else {
@@ -303,7 +335,7 @@ func renderTable(headers []string, rows [][]string, selectedIdx int) string {
 
 	// Build table
 	var table string
-	
+
 	// Header
 	headerRow := ""
 	for i, header := range headers {
@@ -333,7 +365,7 @@ func renderTable(headers []string, rows [][]string, selectedIdx int) string {
 	return tableStyle.Render(table)
 }
 
-func (m model) View() string {
+func (m *model) View() string {
 	if m.quitting {
 		return titleStyle.Render("👋 Goodbye!") + "\n"
 	}
@@ -386,11 +418,11 @@ func (m model) View() string {
 			if endIdx > len(m.chartVersions) {
 				endIdx = len(m.chartVersions)
 			}
-			
+
 			// Show pagination info
 			totalPages := (len(m.chartVersions) + m.pageSize - 1) / m.pageSize
 			content += subtitleStyle.Render(fmt.Sprintf("Page %d of %d (%d total versions)", m.versionPage+1, totalPages, len(m.chartVersions))) + "\n\n"
-			
+
 			// Show current page of versions
 			pageVersions := m.chartVersions[startIdx:endIdx]
 			headers := []string{"Chart Version", "App Version", "Description"}
@@ -399,7 +431,7 @@ func (m model) View() string {
 				rows[i] = []string{version.ChartVersion, version.AppVersion, version.Description}
 			}
 			content += renderTable(headers, rows, m.versionIdx)
-			
+
 			// Show navigation hints
 			navHints := subtitleStyle.Render("(up/down to navigate, left/right to change page, enter to select)")
 			if totalPages > 1 {
@@ -426,8 +458,9 @@ func (m model) View() string {
 }
 
 func main() {
-	if _, err := tea.NewProgram(initialModel()).Run(); err != nil {
+	m := initialModel()
+	if _, err := tea.NewProgram(&m).Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-} 
+}
