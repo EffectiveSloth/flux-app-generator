@@ -54,11 +54,13 @@ func generateHelmRelease(config *types.AppConfig, appDir string) error {
 }
 
 func generateHelmValues(config *types.AppConfig, appDir string) error {
-	return generateFromTemplateString(
-		HelmValuesTemplate,
-		filepath.Join(appDir, "release", "helm-values.yaml"),
-		config,
-	)
+	outputPath := filepath.Join(appDir, "release", "helm-values.yaml")
+	if raw, ok := config.Values["__raw_yaml__"]; ok {
+		// Write raw YAML directly
+		return os.WriteFile(outputPath, []byte(raw.(string)), 0600)
+	}
+	// Just create an empty file
+	return os.WriteFile(outputPath, []byte{}, 0600)
 }
 
 func generateKustomization(config *types.AppConfig, appDir string) error {

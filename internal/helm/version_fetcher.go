@@ -13,9 +13,10 @@ import (
 
 type IndexYAML struct {
 	Entries map[string][]struct {
-		Version     string `yaml:"version"`
-		AppVersion  string `yaml:"appVersion"`
-		Description string `yaml:"description"`
+		Version     string   `yaml:"version"`
+		AppVersion  string   `yaml:"appVersion"`
+		Description string   `yaml:"description"`
+		URLs        []string `yaml:"urls"`
 	} `yaml:"entries"`
 }
 

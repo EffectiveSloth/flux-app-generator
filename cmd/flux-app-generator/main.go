@@ -81,6 +81,7 @@ const (
 	stepChartPicker
 	stepChartVersion
 	stepInterval
+	stepValuesPrefill // NEW: ask user about pre-filling values.yaml
 	stepDone
 )
 
@@ -90,20 +91,23 @@ type chartInfo struct {
 }
 
 type model struct {
-	step           step
-	inputs         []textinput.Model
-	intervalOpts   []string
-	intervalIdx    int
-	chartList      []chartInfo
-	chartIdx       int
-	chartVersions  []helm.ChartVersion
-	versionIdx     int
-	versionPage    int // Add pagination for versions
-	pageSize       int // Number of versions per page
-	quitting       bool
-	result         string
-	config         *types.AppConfig
-	versionFetcher *helm.VersionFetcher
+	step               step
+	inputs             []textinput.Model
+	intervalOpts       []string
+	intervalIdx        int
+	chartList          []chartInfo
+	chartIdx           int
+	chartVersions      []helm.ChartVersion
+	versionIdx         int
+	versionPage        int // Add pagination for versions
+	pageSize           int // Number of versions per page
+	quitting           bool
+	result             string
+	config             *types.AppConfig
+	versionFetcher     *helm.VersionFetcher
+	valuesPrefillIdx   int      // 0 = use default, 1 = empty
+	valuesPrefillOpts  []string // ["Use default values", "Empty values file"]
+	chartTarballValues string   // extracted values.yaml content
 }
 
 func initialModel() model {
@@ -125,18 +129,21 @@ func initialModel() model {
 	}
 
 	return model{
-		step:           stepAppName,
-		inputs:         inputs,
-		intervalOpts:   []string{"1m", "5m", "10m", "30m", "1h"},
-		intervalIdx:    1,
-		chartList:      []chartInfo{},
-		chartIdx:       0,
-		chartVersions:  []helm.ChartVersion{},
-		versionIdx:     0,
-		versionPage:    0,
-		pageSize:       10, // Show 10 versions per page
-		config:         &types.AppConfig{},
-		versionFetcher: helm.NewVersionFetcher(),
+		step:               stepAppName,
+		inputs:             inputs,
+		intervalOpts:       []string{"1m", "5m", "10m", "30m", "1h"},
+		intervalIdx:        1,
+		chartList:          []chartInfo{},
+		chartIdx:           0,
+		chartVersions:      []helm.ChartVersion{},
+		versionIdx:         0,
+		versionPage:        0,
+		pageSize:           10, // Show 10 versions per page
+		config:             &types.AppConfig{},
+		versionFetcher:     helm.NewVersionFetcher(),
+		valuesPrefillOpts:  []string{"Use default values", "Empty values file"},
+		valuesPrefillIdx:   0,
+		chartTarballValues: "",
 	}
 }
 
@@ -214,9 +221,21 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.step = stepInterval
 			case stepInterval:
 				m.config.Interval = m.intervalOpts[m.intervalIdx]
-				// Immediately generate files when reaching stepDone
-				m.config.Values = make(map[string]interface{})
-
+				m.step = stepValuesPrefill
+			case stepValuesPrefill:
+				// After user chooses, proceed to file generation
+				// Download and extract values.yaml if needed
+				if m.valuesPrefillIdx == 0 {
+					// Download and extract values.yaml
+					values, err := helm.DownloadAndExtractValuesYAML(m.config.HelmRepoURL, m.config.ChartName, m.config.ChartVersion)
+					if err != nil {
+						m.result = "Error downloading chart values.yaml: " + err.Error()
+						return m, tea.Quit
+					}
+					m.chartTarballValues = values
+				} else {
+					m.chartTarballValues = ""
+				}
 				// Load templates from embedded filesystem
 				var err error
 				generator.HelmRepositoryTemplate, err = loadTemplate("helm-repository.yaml.tmpl")
@@ -229,17 +248,13 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.result = "Error loading template: " + err.Error()
 					return m, tea.Quit
 				}
-				generator.HelmValuesTemplate, err = loadTemplate("helm-values.yaml.tmpl")
-				if err != nil {
-					m.result = "Error loading template: " + err.Error()
-					return m, tea.Quit
-				}
 				generator.KustomizationTemplate, err = loadTemplate("kustomization.yaml.tmpl")
 				if err != nil {
 					m.result = "Error loading template: " + err.Error()
 					return m, tea.Quit
 				}
-
+				// Pass the extracted or empty values to the generator
+				m.config.Values = map[string]interface{}{"__raw_yaml__": m.chartTarballValues}
 				err = generator.GenerateFluxStructure(m.config)
 				if err != nil {
 					m.result = "Error: " + err.Error()
@@ -255,6 +270,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.versionIdx--
 			} else if m.step == stepChartPicker && m.chartIdx > 0 {
 				m.chartIdx--
+			} else if m.step == stepValuesPrefill && m.valuesPrefillIdx > 0 {
+				m.valuesPrefillIdx--
 			}
 		case "down", "j":
 			if m.step == stepInterval && m.intervalIdx < len(m.intervalOpts)-1 {
@@ -271,6 +288,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			} else if m.step == stepChartPicker && m.chartIdx < len(m.chartList)-1 {
 				m.chartIdx++
+			} else if m.step == stepValuesPrefill && m.valuesPrefillIdx < len(m.valuesPrefillOpts)-1 {
+				m.valuesPrefillIdx++
 			}
 		case "left", "h":
 			if m.step == stepChartVersion && m.versionPage > 0 {
@@ -453,6 +472,17 @@ func (m *model) View() string {
 			}
 		}
 		content += "\n" + subtitleStyle.Render("(up/down to change, enter to continue)")
+	case stepValuesPrefill:
+		content = titleStyle.Render("📝 Pre-fill Values File?") + "\n\n"
+		content += "Do you want to pre-fill helm-values.yaml with the chart's default values.yaml, or generate an empty one?\n\n"
+		for i, opt := range m.valuesPrefillOpts {
+			if i == m.valuesPrefillIdx {
+				content += selectedStyle.Render("> "+opt+" <") + "\n"
+			} else {
+				content += "  " + opt + "  \n"
+			}
+		}
+		content += subtitleStyle.Render("(up/down to choose, enter to continue)")
 	}
 	return content
 }

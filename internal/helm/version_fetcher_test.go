@@ -160,13 +160,14 @@ func TestVersionFetcher_FetchChartVersions(t *testing.T) {
 func mockFetchIndexYAML(repoURL string) (*IndexYAML, error) {
 	return &IndexYAML{
 		Entries: map[string][]struct {
-			Version     string `yaml:"version"`
-			AppVersion  string `yaml:"appVersion"`
-			Description string `yaml:"description"`
+			Version     string   `yaml:"version"`
+			AppVersion  string   `yaml:"appVersion"`
+			Description string   `yaml:"description"`
+			URLs        []string `yaml:"urls"`
 		}{
 			"airbyte": {
-				{Version: "1.2.3", AppVersion: "2.3.4", Description: "desc1"},
-				{Version: "1.2.2", AppVersion: "2.3.3", Description: "desc2"},
+				{Version: "1.2.3", AppVersion: "2.3.4", Description: "desc1", URLs: []string{"https://example.com/airbyte-1.2.3.tgz"}},
+				{Version: "1.2.2", AppVersion: "2.3.3", Description: "desc2", URLs: []string{"https://example.com/airbyte-1.2.2.tgz"}},
 			},
 		},
 	}, nil
@@ -174,19 +175,21 @@ func mockFetchIndexYAML(repoURL string) (*IndexYAML, error) {
 
 func mockFetchIndexYAML_Empty(repoURL string) (*IndexYAML, error) {
 	return &IndexYAML{Entries: map[string][]struct {
-		Version     string `yaml:"version"`
-		AppVersion  string `yaml:"appVersion"`
-		Description string `yaml:"description"`
+		Version     string   `yaml:"version"`
+		AppVersion  string   `yaml:"appVersion"`
+		Description string   `yaml:"description"`
+		URLs        []string `yaml:"urls"`
 	}{}}, nil
 }
 
 func mockFetchIndexYAML_NoChart(repoURL string) (*IndexYAML, error) {
 	return &IndexYAML{Entries: map[string][]struct {
-		Version     string `yaml:"version"`
-		AppVersion  string `yaml:"appVersion"`
-		Description string `yaml:"description"`
+		Version     string   `yaml:"version"`
+		AppVersion  string   `yaml:"appVersion"`
+		Description string   `yaml:"description"`
+		URLs        []string `yaml:"urls"`
 	}{
-		"other": {{Version: "0.1.0", AppVersion: "0.1.0", Description: "other chart"}},
+		"other": {{Version: "0.1.0", AppVersion: "0.1.0", Description: "other chart", URLs: []string{"https://example.com/other-0.1.0.tgz"}}},
 	}}, nil
 }
 
