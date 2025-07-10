@@ -6,6 +6,8 @@
 *.dylib
 flux-app-generator
 
+dist/
+
 # Test binary, built with `go test -c`
 *.test
 

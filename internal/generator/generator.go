@@ -4,61 +4,96 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"text/template"
+
+	"github.com/EffectiveSloth/flux-app-generator/internal/types"
 )
 
-// AppConfig holds the configuration for generating Flux manifests
-type AppConfig struct {
-	Name      string
-	Image     string
-	Port      int
-	Namespace string
-}
+// Import embedded templates from main package
+var (
+	HelmRepositoryTemplate string
+	HelmReleaseTemplate    string
+	HelmValuesTemplate     string
+	KustomizationTemplate  string
+)
 
-// Generator handles the creation of Flux manifests
-type Generator struct {
-	config AppConfig
-}
-
-// NewGenerator creates a new Generator instance
-func NewGenerator(config AppConfig) *Generator {
-	return &Generator{
-		config: config,
-	}
-}
-
-// Generate creates all necessary Flux manifests
-func (g *Generator) Generate(outputDir string) error {
-	// Ensure output directory exists
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return fmt.Errorf("failed to create output directory: %w", err)
+func generateFromTemplateString(templateStr, outputPath string, data interface{}) error {
+	tmpl, err := template.New("template").Parse(templateStr)
+	if err != nil {
+		return fmt.Errorf("failed to parse template: %w", err)
 	}
 
-	// TODO: Implement manifest generation
-	// This will include:
-	// - Kustomization.yaml
-	// - deployment.yaml
-	// - service.yaml
-	// - namespace.yaml (if needed)
-	// - ingress.yaml (if needed)
+	file, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to create %s: %w", outputPath, err)
+	}
+	defer file.Close()
 
-	fmt.Printf("Generated manifests for %s in %s\n", g.config.Name, outputDir)
-	return nil
+	return tmpl.Execute(file, data)
 }
 
-// GenerateKustomization creates the kustomization.yaml file
-func (g *Generator) GenerateKustomization(outputDir string) error {
-	// TODO: Implement kustomization.yaml generation
-	return nil
+func generateHelmRepository(config *types.AppConfig, appDir string) error {
+	return generateFromTemplateString(
+		HelmRepositoryTemplate,
+		filepath.Join(appDir, "dependencies", "helm-repository.yaml"),
+		config,
+	)
 }
 
-// GenerateDeployment creates the deployment.yaml file
-func (g *Generator) GenerateDeployment(outputDir string) error {
-	// TODO: Implement deployment.yaml generation
-	return nil
+func generateHelmRelease(config *types.AppConfig, appDir string) error {
+	return generateFromTemplateString(
+		HelmReleaseTemplate,
+		filepath.Join(appDir, "release", "helm-release.yaml"),
+		config,
+	)
 }
 
-// GenerateService creates the service.yaml file
-func (g *Generator) GenerateService(outputDir string) error {
-	// TODO: Implement service.yaml generation
+func generateHelmValues(config *types.AppConfig, appDir string) error {
+	return generateFromTemplateString(
+		HelmValuesTemplate,
+		filepath.Join(appDir, "release", "helm-values.yaml"),
+		config,
+	)
+}
+
+func generateKustomization(config *types.AppConfig, appDir string) error {
+	return generateFromTemplateString(
+		KustomizationTemplate,
+		filepath.Join(appDir, "kustomization.yaml"),
+		config,
+	)
+}
+
+// GenerateFluxStructure is the main entrypoint for generating the Flux structure
+func GenerateFluxStructure(config *types.AppConfig) error {
+	// Create app directory
+	appDir := config.AppName
+	if err := os.MkdirAll(appDir, 0755); err != nil {
+		return fmt.Errorf("failed to create app directory %s: %w", appDir, err)
+	}
+
+	// Create subdirectories
+	dirs := []string{filepath.Join(appDir, "dependencies"), filepath.Join(appDir, "release")}
+	for _, dir := range dirs {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", dir, err)
+		}
+	}
+
+	if err := generateHelmRepository(config, appDir); err != nil {
+		return err
+	}
+	if err := generateHelmRelease(config, appDir); err != nil {
+		return err
+	}
+	if err := generateHelmValues(config, appDir); err != nil {
+		return err
+	}
+	if err := generateKustomization(config, appDir); err != nil {
+		return err
+	}
+
+	fmt.Printf("\n✅ Generated Flux structure for '%s' in namespace '%s'\n", config.AppName, config.Namespace)
+	fmt.Printf("📁 Files created in directory: %s/\n", appDir)
 	return nil
 } 

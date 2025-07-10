@@ -1,53 +1,30 @@
-.PHONY: build test clean run help
+.PHONY: build run test lint clean help
 
-# Binary name
 BINARY_NAME=flux-app-generator
+CMD_PATH=cmd/flux-app-generator
+DIST_DIR=dist
 
-# Build the application
 build:
-	go build -o $(BINARY_NAME) .
+	mkdir -p $(DIST_DIR)
+	go build -o $(DIST_DIR)/$(BINARY_NAME) ./$(CMD_PATH)
 
-# Run the application
 run: build
-	./$(BINARY_NAME)
+	./$(DIST_DIR)/$(BINARY_NAME)
 
-# Test the application
 test:
-	go test -v ./...
+	go test ./...
 
-# Run tests with coverage
-test-coverage:
-	go test -v -coverprofile=coverage.out ./...
-	go tool cover -html=coverage.out
-
-# Clean build artifacts
-clean:
-	go clean
-	rm -f $(BINARY_NAME)
-	rm -f coverage.out
-
-# Install dependencies
-deps:
-	go mod download
-	go mod tidy
-
-# Format code
-fmt:
-	go fmt ./...
-
-# Lint code
 lint:
-	golangci-lint run
+	golangci-lint run ./...
 
-# Generate help
+clean:
+	rm -rf $(DIST_DIR)
+
 help:
-	@echo "Available commands:"
-	@echo "  build        - Build the application"
-	@echo "  run          - Build and run the application"
-	@echo "  test         - Run tests"
-	@echo "  test-coverage- Run tests with coverage report"
-	@echo "  clean        - Clean build artifacts"
-	@echo "  deps         - Download and tidy dependencies"
-	@echo "  fmt          - Format code"
-	@echo "  lint         - Lint code"
-	@echo "  help         - Show this help message" 
+	@echo "Available targets:"
+	@echo "  build   - Build the CLI binary in dist/"
+	@echo "  run     - Build and run the CLI from dist/"
+	@echo "  test    - Run tests"
+	@echo "  lint    - Lint the codebase (requires golangci-lint)"
+	@echo "  clean   - Remove build artifacts in dist/"
+	@echo "  help    - Show this help message" 
