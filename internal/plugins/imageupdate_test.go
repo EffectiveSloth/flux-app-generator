@@ -264,3 +264,868 @@ func TestImageUpdatePlugin_GenerateFile_EmptyArrays(t *testing.T) {
 		t.Errorf("automation file should contain correct namespace")
 	}
 }
+
+// Test validation of image repositories JSON
+func TestImageUpdatePlugin_ValidateImageRepositories(t *testing.T) {
+	plugin := NewImageUpdatePlugin()
+
+	tests := []struct {
+		name        string
+		values      map[string]interface{}
+		expectError bool
+		errorText   string
+	}{
+		{
+			name: "valid repositories JSON",
+			values: map[string]interface{}{
+				"automation_name":    "test",
+				"image_repositories": `[{"name":"app","image":"myregistry/app","interval":"6h"}]`,
+			},
+			expectError: false,
+		},
+		{
+			name: "invalid JSON format",
+			values: map[string]interface{}{
+				"automation_name":    "test",
+				"image_repositories": `[{"name":"app","image":"myregistry/app",invalid}]`,
+			},
+			expectError: true,
+			errorText:   "invalid JSON format",
+		},
+		{
+			name: "missing repository name",
+			values: map[string]interface{}{
+				"automation_name":    "test",
+				"image_repositories": `[{"image":"myregistry/app","interval":"6h"}]`,
+			},
+			expectError: true,
+			errorText:   "name is required",
+		},
+		{
+			name: "missing repository image",
+			values: map[string]interface{}{
+				"automation_name":    "test",
+				"image_repositories": `[{"name":"app","interval":"6h"}]`,
+			},
+			expectError: true,
+			errorText:   "image is required",
+		},
+		{
+			name: "missing repository interval",
+			values: map[string]interface{}{
+				"automation_name":    "test",
+				"image_repositories": `[{"name":"app","image":"myregistry/app"}]`,
+			},
+			expectError: true,
+			errorText:   "interval is required",
+		},
+		{
+			name: "non-string repositories value",
+			values: map[string]interface{}{
+				"automation_name":    "test",
+				"image_repositories": 123,
+			},
+			expectError: false, // Non-string values are ignored in validation
+		},
+		{
+			name: "empty repository name",
+			values: map[string]interface{}{
+				"automation_name":    "test",
+				"image_repositories": `[{"name":"","image":"myregistry/app","interval":"6h"}]`,
+			},
+			expectError: true,
+			errorText:   "name is required",
+		},
+		{
+			name: "empty repository image",
+			values: map[string]interface{}{
+				"automation_name":    "test",
+				"image_repositories": `[{"name":"app","image":"","interval":"6h"}]`,
+			},
+			expectError: true,
+			errorText:   "image is required",
+		},
+		{
+			name: "empty repository interval",
+			values: map[string]interface{}{
+				"automation_name":    "test",
+				"image_repositories": `[{"name":"app","image":"myregistry/app","interval":""}]`,
+			},
+			expectError: true,
+			errorText:   "interval is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := plugin.Validate(tt.values)
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				} else if tt.errorText != "" && !strings.Contains(err.Error(), tt.errorText) {
+					t.Errorf("expected error to contain '%s', got '%s'", tt.errorText, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// Test validation of image policies JSON
+func TestImageUpdatePlugin_ValidateImagePolicies(t *testing.T) {
+	plugin := NewImageUpdatePlugin()
+
+	tests := []struct {
+		name        string
+		values      map[string]interface{}
+		expectError bool
+		errorText   string
+	}{
+		{
+			name: "valid semver policy",
+			values: map[string]interface{}{
+				"automation_name": "test",
+				"image_policies":  `[{"name":"app","repository":"app","policyType":"semver","range":"*"}]`,
+			},
+			expectError: false,
+		},
+		{
+			name: "valid numerical policy",
+			values: map[string]interface{}{
+				"automation_name": "test",
+				"image_policies":  `[{"name":"app","repository":"app","policyType":"numerical","pattern":"^main-[a-f0-9]+","extract":"$ts","order":"asc"}]`,
+			},
+			expectError: false,
+		},
+		{
+			name: "valid timestamp policy",
+			values: map[string]interface{}{
+				"automation_name": "test",
+				"image_policies":  `[{"name":"app","repository":"app","policyType":"timestamp","pattern":"^main-[a-f0-9]+","extract":"$ts","order":"asc"}]`,
+			},
+			expectError: false,
+		},
+		{
+			name: "invalid policies JSON",
+			values: map[string]interface{}{
+				"automation_name": "test",
+				"image_policies":  `[{"name":"app",invalid}]`,
+			},
+			expectError: true,
+			errorText:   "invalid JSON format",
+		},
+		{
+			name: "missing policy name",
+			values: map[string]interface{}{
+				"automation_name": "test",
+				"image_policies":  `[{"repository":"app","policyType":"semver","range":"*"}]`,
+			},
+			expectError: true,
+			errorText:   "name is required",
+		},
+		{
+			name: "missing policy repository",
+			values: map[string]interface{}{
+				"automation_name": "test",
+				"image_policies":  `[{"name":"app","policyType":"semver","range":"*"}]`,
+			},
+			expectError: true,
+			errorText:   "repository is required",
+		},
+		{
+			name: "missing policy type",
+			values: map[string]interface{}{
+				"automation_name": "test",
+				"image_policies":  `[{"name":"app","repository":"app","range":"*"}]`,
+			},
+			expectError: true,
+			errorText:   "policyType is required",
+		},
+		{
+			name: "semver policy missing range",
+			values: map[string]interface{}{
+				"automation_name": "test",
+				"image_policies":  `[{"name":"app","repository":"app","policyType":"semver"}]`,
+			},
+			expectError: true,
+			errorText:   "range is required for semver policy",
+		},
+		{
+			name: "numerical policy missing pattern",
+			values: map[string]interface{}{
+				"automation_name": "test",
+				"image_policies":  `[{"name":"app","repository":"app","policyType":"numerical","extract":"$ts","order":"asc"}]`,
+			},
+			expectError: true,
+			errorText:   "pattern is required for numerical policy",
+		},
+		{
+			name: "numerical policy missing extract",
+			values: map[string]interface{}{
+				"automation_name": "test",
+				"image_policies":  `[{"name":"app","repository":"app","policyType":"numerical","pattern":"^main-[a-f0-9]+","order":"asc"}]`,
+			},
+			expectError: true,
+			errorText:   "extract is required for numerical policy",
+		},
+		{
+			name: "numerical policy missing order",
+			values: map[string]interface{}{
+				"automation_name": "test",
+				"image_policies":  `[{"name":"app","repository":"app","policyType":"numerical","pattern":"^main-[a-f0-9]+","extract":"$ts","order":""}]`,
+			},
+			expectError: true,
+			errorText:   "order is required for numerical policy",
+		},
+		{
+			name: "empty policy name",
+			values: map[string]interface{}{
+				"automation_name": "test",
+				"image_policies":  `[{"name":"","repository":"app","policyType":"semver","range":"*"}]`,
+			},
+			expectError: true,
+			errorText:   "name is required",
+		},
+		{
+			name: "empty repository reference",
+			values: map[string]interface{}{
+				"automation_name": "test",
+				"image_policies":  `[{"name":"app","repository":"","policyType":"semver","range":"*"}]`,
+			},
+			expectError: true,
+			errorText:   "repository is required",
+		},
+		{
+			name: "empty policy type",
+			values: map[string]interface{}{
+				"automation_name": "test",
+				"image_policies":  `[{"name":"app","repository":"app","policyType":"","range":"*"}]`,
+			},
+			expectError: true,
+			errorText:   "policyType is required",
+		},
+		{
+			name: "empty semver range",
+			values: map[string]interface{}{
+				"automation_name": "test",
+				"image_policies":  `[{"name":"app","repository":"app","policyType":"semver","range":""}]`,
+			},
+			expectError: true,
+			errorText:   "range is required for semver policy",
+		},
+		{
+			name: "empty numerical pattern",
+			values: map[string]interface{}{
+				"automation_name": "test",
+				"image_policies":  `[{"name":"app","repository":"app","policyType":"numerical","pattern":"","extract":"$ts","order":"asc"}]`,
+			},
+			expectError: true,
+			errorText:   "pattern is required for numerical policy",
+		},
+		{
+			name: "empty numerical extract",
+			values: map[string]interface{}{
+				"automation_name": "test",
+				"image_policies":  `[{"name":"app","repository":"app","policyType":"numerical","pattern":"^main-[a-f0-9]+","extract":"","order":"asc"}]`,
+			},
+			expectError: true,
+			errorText:   "extract is required for numerical policy",
+		},
+		{
+			name: "empty numerical order",
+			values: map[string]interface{}{
+				"automation_name": "test",
+				"image_policies":  `[{"name":"app","repository":"app","policyType":"numerical","pattern":"^main-[a-f0-9]+","extract":"$ts","order":""}]`,
+			},
+			expectError: true,
+			errorText:   "order is required for numerical policy",
+		},
+		{
+			name: "non-string policies value",
+			values: map[string]interface{}{
+				"automation_name": "test",
+				"image_policies":  123,
+			},
+			expectError: false, // Non-string values are ignored in validation
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := plugin.Validate(tt.values)
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				} else if tt.errorText != "" && !strings.Contains(err.Error(), tt.errorText) {
+					t.Errorf("expected error to contain '%s', got '%s'", tt.errorText, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// Test individual validation helper methods
+func TestImageUpdatePlugin_ValidateSingleRepository(t *testing.T) {
+	plugin := NewImageUpdatePlugin()
+
+	tests := []struct {
+		name        string
+		repo        ImageRepository
+		expectError bool
+		errorText   string
+	}{
+		{
+			name: "valid repository",
+			repo: ImageRepository{
+				Name:     "myapp",
+				Image:    "myregistry/myapp",
+				Interval: "6h",
+			},
+			expectError: false,
+		},
+		{
+			name: "missing name",
+			repo: ImageRepository{
+				Image:    "myregistry/myapp",
+				Interval: "6h",
+			},
+			expectError: true,
+			errorText:   "name is required",
+		},
+		{
+			name: "missing image",
+			repo: ImageRepository{
+				Name:     "myapp",
+				Interval: "6h",
+			},
+			expectError: true,
+			errorText:   "image is required",
+		},
+		{
+			name: "missing interval",
+			repo: ImageRepository{
+				Name:  "myapp",
+				Image: "myregistry/myapp",
+			},
+			expectError: true,
+			errorText:   "interval is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := plugin.validateSingleRepository(tt.repo, 0)
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				} else if tt.errorText != "" && !strings.Contains(err.Error(), tt.errorText) {
+					t.Errorf("expected error to contain '%s', got '%s'", tt.errorText, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// Test individual policy validation methods
+func TestImageUpdatePlugin_ValidateSinglePolicy(t *testing.T) {
+	plugin := NewImageUpdatePlugin()
+
+	tests := []struct {
+		name        string
+		policy      ImagePolicy
+		expectError bool
+		errorText   string
+	}{
+		{
+			name: "valid semver policy",
+			policy: ImagePolicy{
+				Name:       "myapp",
+				Repository: "myapp",
+				PolicyType: PolicyTypeSemver,
+				Range:      "*",
+			},
+			expectError: false,
+		},
+		{
+			name: "valid numerical policy",
+			policy: ImagePolicy{
+				Name:       "myapp",
+				Repository: "myapp",
+				PolicyType: PolicyTypeNumerical,
+				Pattern:    "^main-[a-f0-9]+",
+				Extract:    "$ts",
+				Order:      "asc",
+			},
+			expectError: false,
+		},
+		{
+			name: "missing name",
+			policy: ImagePolicy{
+				Repository: "myapp",
+				PolicyType: PolicyTypeSemver,
+				Range:      "*",
+			},
+			expectError: true,
+			errorText:   "name is required",
+		},
+		{
+			name: "missing repository",
+			policy: ImagePolicy{
+				Name:       "myapp",
+				PolicyType: PolicyTypeSemver,
+				Range:      "*",
+			},
+			expectError: true,
+			errorText:   "repository is required",
+		},
+		{
+			name: "missing policy type",
+			policy: ImagePolicy{
+				Name:       "myapp",
+				Repository: "myapp",
+				Range:      "*",
+			},
+			expectError: true,
+			errorText:   "policyType is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := plugin.validateSinglePolicy(&tt.policy, 0)
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				} else if tt.errorText != "" && !strings.Contains(err.Error(), tt.errorText) {
+					t.Errorf("expected error to contain '%s', got '%s'", tt.errorText, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// Test semver policy validation
+func TestImageUpdatePlugin_ValidateSemverPolicy(t *testing.T) {
+	plugin := NewImageUpdatePlugin()
+
+	tests := []struct {
+		name        string
+		policy      ImagePolicy
+		expectError bool
+		errorText   string
+	}{
+		{
+			name: "valid semver policy",
+			policy: ImagePolicy{
+				PolicyType: PolicyTypeSemver,
+				Range:      "*",
+			},
+			expectError: false,
+		},
+		{
+			name: "missing range",
+			policy: ImagePolicy{
+				PolicyType: PolicyTypeSemver,
+			},
+			expectError: true,
+			errorText:   "range is required for semver policy",
+		},
+		{
+			name: "empty range",
+			policy: ImagePolicy{
+				PolicyType: PolicyTypeSemver,
+				Range:      "",
+			},
+			expectError: true,
+			errorText:   "range is required for semver policy",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := plugin.validateSemverPolicy(&tt.policy, 0)
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				} else if tt.errorText != "" && !strings.Contains(err.Error(), tt.errorText) {
+					t.Errorf("expected error to contain '%s', got '%s'", tt.errorText, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// Test numerical policy validation
+func TestImageUpdatePlugin_ValidateNumericalPolicy(t *testing.T) {
+	plugin := NewImageUpdatePlugin()
+
+	tests := []struct {
+		name        string
+		policy      ImagePolicy
+		expectError bool
+		errorText   string
+	}{
+		{
+			name: "valid numerical policy",
+			policy: ImagePolicy{
+				PolicyType: PolicyTypeNumerical,
+				Pattern:    "^main-[a-f0-9]+",
+				Extract:    "$ts",
+				Order:      "asc",
+			},
+			expectError: false,
+		},
+		{
+			name: "missing pattern",
+			policy: ImagePolicy{
+				PolicyType: PolicyTypeNumerical,
+				Extract:    "$ts",
+				Order:      "asc",
+			},
+			expectError: true,
+			errorText:   "pattern is required for numerical policy",
+		},
+		{
+			name: "missing extract",
+			policy: ImagePolicy{
+				PolicyType: PolicyTypeNumerical,
+				Pattern:    "^main-[a-f0-9]+",
+				Order:      "asc",
+			},
+			expectError: true,
+			errorText:   "extract is required for numerical policy",
+		},
+		{
+			name: "missing order",
+			policy: ImagePolicy{
+				PolicyType: PolicyTypeNumerical,
+				Pattern:    "^main-[a-f0-9]+",
+				Extract:    "$ts",
+			},
+			expectError: true,
+			errorText:   "order is required for numerical policy",
+		},
+		{
+			name: "empty pattern",
+			policy: ImagePolicy{
+				PolicyType: PolicyTypeNumerical,
+				Pattern:    "",
+				Extract:    "$ts",
+				Order:      "asc",
+			},
+			expectError: true,
+			errorText:   "pattern is required for numerical policy",
+		},
+		{
+			name: "empty extract",
+			policy: ImagePolicy{
+				PolicyType: PolicyTypeNumerical,
+				Pattern:    "^main-[a-f0-9]+",
+				Extract:    "",
+				Order:      "asc",
+			},
+			expectError: true,
+			errorText:   "extract is required for numerical policy",
+		},
+		{
+			name: "empty order",
+			policy: ImagePolicy{
+				PolicyType: PolicyTypeNumerical,
+				Pattern:    "^main-[a-f0-9]+",
+				Extract:    "$ts",
+				Order:      "",
+			},
+			expectError: true,
+			errorText:   "order is required for numerical policy",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := plugin.validateNumericalPolicy(&tt.policy, 0)
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				} else if tt.errorText != "" && !strings.Contains(err.Error(), tt.errorText) {
+					t.Errorf("expected error to contain '%s', got '%s'", tt.errorText, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// Test GenerateFile with invalid JSON data
+func TestImageUpdatePlugin_GenerateFile_InvalidJSON(t *testing.T) {
+	plugin := NewImageUpdatePlugin()
+
+	tempDir := t.TempDir()
+	namespace := DefaultFluxNamespace
+
+	tests := []struct {
+		name   string
+		values map[string]interface{}
+	}{
+		{
+			name: "invalid repositories JSON",
+			values: map[string]interface{}{
+				"automation_name":    "test",
+				"image_repositories": `invalid json`,
+				"image_policies":     `[]`,
+			},
+		},
+		{
+			name: "invalid policies JSON",
+			values: map[string]interface{}{
+				"automation_name":    "test",
+				"image_repositories": `[]`,
+				"image_policies":     `invalid json`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := plugin.GenerateFile(tt.values, tempDir, namespace)
+			if err == nil {
+				t.Errorf("expected error for invalid JSON but got none")
+			}
+		})
+	}
+}
+
+// Test GenerateFile with multiple repositories and policies
+func TestImageUpdatePlugin_GenerateFile_MultipleItems(t *testing.T) {
+	plugin := NewImageUpdatePlugin()
+
+	values := map[string]interface{}{
+		"automation_name": "multi-test",
+		"image_repositories": `[
+			{"name":"app1","image":"registry/app1","interval":"6h","secretRef":"registry-secret"},
+			{"name":"app2","image":"registry/app2","interval":"12h"}
+		]`,
+		"image_policies": `[
+			{"name":"app1-policy","repository":"app1","policyType":"semver","range":"^1.0.0"},
+			{"name":"app2-policy","repository":"app2","policyType":"numerical","pattern":"^main-[a-f0-9]+-(?P<ts>[0-9]+)","extract":"$ts","order":"asc"}
+		]`,
+		"git_repository_name":      DefaultFluxNamespace,
+		"git_repository_namespace": DefaultFluxNamespace,
+		"update_path":              "./apps/multi-test",
+		"git_branch":               "main",
+		"author_name":              "Test Author",
+		"author_email":             "test@example.com",
+		"automation_interval":      "10m",
+		"update_strategy":          "Setters",
+		"commit_message_template":  "chore: update container versions",
+	}
+
+	tempDir := t.TempDir()
+	namespace := "test-namespace"
+
+	err := plugin.GenerateFile(values, tempDir, namespace)
+	if err != nil {
+		t.Fatalf("GenerateFile failed: %v", err)
+	}
+
+	// Check image-repository.yaml content for multiple repositories
+	repoContent, err := os.ReadFile(filepath.Join(tempDir, "image-repository.yaml"))
+	if err != nil {
+		t.Fatalf("failed to read image-repository.yaml: %v", err)
+	}
+
+	repoStr := string(repoContent)
+	if !strings.Contains(repoStr, "name: app1") {
+		t.Errorf("image-repository.yaml should contain first repository")
+	}
+	if !strings.Contains(repoStr, "name: app2") {
+		t.Errorf("image-repository.yaml should contain second repository")
+	}
+	if !strings.Contains(repoStr, "secretRef:\n    name: registry-secret") {
+		t.Errorf("image-repository.yaml should contain secret reference")
+	}
+
+	// Check image-policy.yaml content for multiple policies
+	policyContent, err := os.ReadFile(filepath.Join(tempDir, "image-policy.yaml"))
+	if err != nil {
+		t.Fatalf("failed to read image-policy.yaml: %v", err)
+	}
+
+	policyStr := string(policyContent)
+	if !strings.Contains(policyStr, "name: app1-policy") {
+		t.Errorf("image-policy.yaml should contain first policy")
+	}
+	if !strings.Contains(policyStr, "name: app2-policy") {
+		t.Errorf("image-policy.yaml should contain second policy")
+	}
+	if !strings.Contains(policyStr, "semver:") {
+		t.Errorf("image-policy.yaml should contain semver policy")
+	}
+	if !strings.Contains(policyStr, "numerical:") {
+		t.Errorf("image-policy.yaml should contain numerical policy")
+	}
+	if !strings.Contains(policyStr, "pattern: '^main-[a-f0-9]+-(?P<ts>[0-9]+)'") {
+		t.Errorf("image-policy.yaml should contain pattern for numerical policy")
+	}
+}
+
+// Test GenerateFile with missing fields
+func TestImageUpdatePlugin_GenerateFile_MissingFields(t *testing.T) {
+	plugin := NewImageUpdatePlugin()
+
+	values := map[string]interface{}{
+		"automation_name": "missing-fields-test",
+		// Missing image_repositories and image_policies
+	}
+
+	tempDir := t.TempDir()
+	namespace := "test-namespace"
+
+	err := plugin.GenerateFile(values, tempDir, namespace)
+	if err != nil {
+		t.Fatalf("GenerateFile should handle missing fields gracefully: %v", err)
+	}
+
+	// Files should still be created with empty arrays
+	expectedFiles := []string{
+		"image-repository.yaml",
+		"image-policy.yaml",
+		"image-update-automation.yaml",
+	}
+
+	for _, filename := range expectedFiles {
+		expectedPath := filepath.Join(tempDir, filename)
+		if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
+			t.Errorf("expected file %s to be created even with missing fields", filename)
+		}
+	}
+}
+
+// Test template file generation errors
+func TestImageUpdatePlugin_GenerateFile_TemplateErrors(t *testing.T) {
+	plugin := NewImageUpdatePlugin()
+
+	// Test with read-only directory to simulate file creation errors
+	tempDir := t.TempDir()
+	readOnlyDir := filepath.Join(tempDir, "readonly")
+	if err := os.MkdirAll(readOnlyDir, 0400); err != nil {
+		t.Fatalf("failed to create readonly directory: %v", err)
+	}
+
+	values := map[string]interface{}{
+		"automation_name":          "test",
+		"image_repositories":       "[]",
+		"image_policies":           "[]",
+		"git_repository_name":      DefaultFluxNamespace,
+		"git_repository_namespace": DefaultFluxNamespace,
+		"update_path":              "./apps/test",
+		"git_branch":               "main",
+		"author_name":              "Test Author",
+		"author_email":             "test@example.com",
+		"automation_interval":      "10m",
+		"update_strategy":          "Setters",
+		"commit_message_template":  "chore: update versions",
+	}
+
+	err := plugin.GenerateFile(values, readOnlyDir, "test-namespace")
+	if err == nil {
+		t.Errorf("expected error when writing to read-only directory")
+	}
+}
+
+// Test generateSingleFile method directly
+func TestImageUpdatePlugin_GenerateSingleFile(t *testing.T) {
+	plugin := NewImageUpdatePlugin()
+
+	tempDir := t.TempDir()
+	outputPath := filepath.Join(tempDir, "test.yaml")
+
+	template := `name: {{.Name}}
+namespace: {{.Namespace}}`
+
+	data := map[string]interface{}{
+		"Name":      "test-app",
+		"Namespace": "test-ns",
+	}
+
+	err := plugin.generateSingleFile(template, outputPath, data)
+	if err != nil {
+		t.Fatalf("generateSingleFile failed: %v", err)
+	}
+
+	// Check file was created and contains expected content
+	content, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatalf("failed to read generated file: %v", err)
+	}
+
+	contentStr := string(content)
+	if !strings.Contains(contentStr, "name: test-app") {
+		t.Errorf("generated file should contain name")
+	}
+	if !strings.Contains(contentStr, "namespace: test-ns") {
+		t.Errorf("generated file should contain namespace")
+	}
+	if !strings.HasSuffix(contentStr, "\n") {
+		t.Errorf("generated file should end with newline")
+	}
+}
+
+// Test generateSingleFile with invalid template
+func TestImageUpdatePlugin_GenerateSingleFile_InvalidTemplate(t *testing.T) {
+	plugin := NewImageUpdatePlugin()
+
+	tempDir := t.TempDir()
+	outputPath := filepath.Join(tempDir, "test.yaml")
+
+	invalidTemplate := `name: {{.Name`
+
+	data := map[string]interface{}{
+		"Name": "test-app",
+	}
+
+	err := plugin.generateSingleFile(invalidTemplate, outputPath, data)
+	if err == nil {
+		t.Errorf("expected error for invalid template")
+	}
+	if !strings.Contains(err.Error(), "failed to parse template") {
+		t.Errorf("expected parse template error, got: %v", err)
+	}
+}
+
+// Test constants
+func TestImageUpdatePlugin_Constants(t *testing.T) {
+	if PolicyTypeSemver != "semver" {
+		t.Errorf("expected PolicyTypeSemver to be 'semver', got '%s'", PolicyTypeSemver)
+	}
+	if PolicyTypeTimestamp != "timestamp" {
+		t.Errorf("expected PolicyTypeTimestamp to be 'timestamp', got '%s'", PolicyTypeTimestamp)
+	}
+	if PolicyTypeNumerical != "numerical" {
+		t.Errorf("expected PolicyTypeNumerical to be 'numerical', got '%s'", PolicyTypeNumerical)
+	}
+	if DefaultFluxNamespace != "flux-system" {
+		t.Errorf("expected DefaultFluxNamespace to be 'flux-system', got '%s'", DefaultFluxNamespace)
+	}
+}

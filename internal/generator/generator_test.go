@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/EffectiveSloth/flux-app-generator/internal/plugins"
 	"github.com/EffectiveSloth/flux-app-generator/internal/types"
 )
 
@@ -286,5 +287,367 @@ func TestGenerateFluxStructure_DirectoryCreationError(t *testing.T) {
 	err := GenerateFluxStructure(config)
 	if err == nil {
 		t.Errorf("expected error for empty app name")
+	}
+}
+
+// Test generatePluginFiles function
+func TestGeneratePluginFiles(t *testing.T) {
+	tempDir := t.TempDir()
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current working directory: %v", err)
+	}
+
+	// Change to temp directory for test
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("failed to change to temp directory: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(originalWd); err != nil {
+			t.Errorf("failed to restore working directory: %v", err)
+		}
+	}()
+
+	tests := []struct {
+		name          string
+		config        *types.AppConfig
+		expectError   bool
+		expectedFiles []string
+	}{
+		{
+			name: "no plugins",
+			config: &types.AppConfig{
+				AppName:   "test-app",
+				Namespace: "default",
+				Plugins:   []plugins.PluginConfig{},
+			},
+			expectError:   false,
+			expectedFiles: nil,
+		},
+		{
+			name: "imageupdate plugin",
+			config: &types.AppConfig{
+				AppName:   "test-app",
+				Namespace: "default",
+				Plugins: []plugins.PluginConfig{
+					{
+						PluginName: "imageupdate",
+						Values: map[string]interface{}{
+							"automation_name":          "test-automation",
+							"image_repositories":       `[{"name":"app","image":"myregistry/app","interval":"6h"}]`,
+							"image_policies":           `[{"name":"app","repository":"app","policyType":"semver","range":"*"}]`,
+							"git_repository_name":      "flux-system",
+							"git_repository_namespace": "flux-system",
+							"update_path":              "./apps/test",
+							"git_branch":               "main",
+							"author_name":              "Test Author",
+							"author_email":             "test@example.com",
+							"automation_interval":      "10m",
+							"update_strategy":          "Setters",
+							"commit_message_template":  "chore: update versions",
+						},
+					},
+				},
+			},
+			expectError: false,
+			expectedFiles: []string{
+				"image-repository.yaml",
+				"image-policy.yaml",
+				"image-update-automation.yaml",
+			},
+		},
+		{
+			name: "externalsecret plugin",
+			config: &types.AppConfig{
+				AppName:   "test-app",
+				Namespace: "default",
+				Plugins: []plugins.PluginConfig{
+					{
+						PluginName: "externalsecret",
+						Values: map[string]interface{}{
+							"name":               "test-secret",
+							"secret_store_type":  "ClusterSecretStore",
+							"secret_store_name":  "vault-backend",
+							"secret_key":         "secret/myapp",
+							"target_secret_name": "test-target",
+							"refresh_interval":   "60m",
+						},
+					},
+				},
+			},
+			expectError:   false,
+			expectedFiles: []string{"dependencies/external-secret-test-target.yaml"},
+		},
+		{
+			name: "invalid plugin",
+			config: &types.AppConfig{
+				AppName:   "test-app",
+				Namespace: "default",
+				Plugins: []plugins.PluginConfig{
+					{
+						PluginName: "nonexistent",
+						Values:     map[string]interface{}{},
+					},
+				},
+			},
+			expectError:   true,
+			expectedFiles: nil,
+		},
+		{
+			name: "plugin validation error",
+			config: &types.AppConfig{
+				AppName:   "test-app",
+				Namespace: "default",
+				Plugins: []plugins.PluginConfig{
+					{
+						PluginName: "imageupdate",
+						Values:     map[string]interface{}{
+							// Missing required automation_name
+						},
+					},
+				},
+			},
+			expectError:   true,
+			expectedFiles: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			appDir := filepath.Join(tempDir, tt.config.AppName+"-"+tt.name)
+			if err := os.MkdirAll(appDir, 0755); err != nil {
+				t.Fatalf("failed to create app directory: %v", err)
+			}
+
+			pluginFiles, err := generatePluginFiles(tt.config, appDir)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			// Check expected files
+			if len(pluginFiles) != len(tt.expectedFiles) {
+				t.Errorf("expected %d plugin files, got %d", len(tt.expectedFiles), len(pluginFiles))
+			}
+
+			for _, expectedFile := range tt.expectedFiles {
+				found := false
+				for _, actualFile := range pluginFiles {
+					if actualFile == expectedFile {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("expected plugin file %s not found in result", expectedFile)
+				}
+
+				// Check if file actually exists
+				filePath := filepath.Join(appDir, expectedFile)
+				if _, err := os.Stat(filePath); os.IsNotExist(err) {
+					t.Errorf("expected file %s was not created", filePath)
+				}
+			}
+		})
+	}
+}
+
+// Test GenerateFluxStructure with imageupdate plugin
+func TestGenerateFluxStructure_WithImageUpdatePlugin(t *testing.T) {
+	config := &types.AppConfig{
+		AppName:      "test-app",
+		Namespace:    "default",
+		HelmRepoName: "test-repo",
+		HelmRepoURL:  "https://example.com/repo",
+		ChartName:    "test-chart",
+		ChartVersion: "1.0.0",
+		Interval:     "5m",
+		Values:       map[string]interface{}{},
+		Plugins: []plugins.PluginConfig{
+			{
+				PluginName: "imageupdate",
+				Values: map[string]interface{}{
+					"automation_name":          "test-automation",
+					"image_repositories":       `[{"name":"app","image":"myregistry/app","interval":"6h"}]`,
+					"image_policies":           `[{"name":"app","repository":"app","policyType":"semver","range":"*"}]`,
+					"git_repository_name":      "flux-system",
+					"git_repository_namespace": "flux-system",
+					"update_path":              "./apps/test",
+					"git_branch":               "main",
+					"author_name":              "Test Author",
+					"author_email":             "test@example.com",
+					"automation_interval":      "10m",
+					"update_strategy":          "Setters",
+					"commit_message_template":  "chore: update versions",
+				},
+			},
+		},
+	}
+
+	tempDir := t.TempDir()
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current working directory: %v", err)
+	}
+
+	// Change to temp directory for test
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("failed to change to temp directory: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(originalWd); err != nil {
+			t.Errorf("failed to restore working directory: %v", err)
+		}
+	}()
+
+	err = GenerateFluxStructure(config)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	// Check if all expected files were created
+	expectedFiles := []string{
+		"test-app/dependencies/helm-repository.yaml",
+		"test-app/release/helm-release.yaml",
+		"test-app/release/helm-values.yaml",
+		"test-app/kustomization.yaml",
+		"test-app/image-repository.yaml",
+		"test-app/image-policy.yaml",
+		"test-app/image-update-automation.yaml",
+	}
+
+	for _, file := range expectedFiles {
+		if _, err := os.Stat(file); os.IsNotExist(err) {
+			t.Errorf("expected file to be created: %s", file)
+		}
+	}
+
+	// Check that plugin files are added to config.PluginFiles
+	expectedPluginFiles := []string{
+		"image-repository.yaml",
+		"image-policy.yaml",
+		"image-update-automation.yaml",
+	}
+
+	if len(config.PluginFiles) != len(expectedPluginFiles) {
+		t.Errorf("expected %d plugin files in config, got %d", len(expectedPluginFiles), len(config.PluginFiles))
+	}
+
+	for _, expectedFile := range expectedPluginFiles {
+		found := false
+		for _, actualFile := range config.PluginFiles {
+			if actualFile == expectedFile {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected plugin file %s not found in config.PluginFiles", expectedFile)
+		}
+	}
+}
+
+// Test generatePluginFiles with multiple plugins
+func TestGeneratePluginFiles_MultiplePlugins(t *testing.T) {
+	tempDir := t.TempDir()
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current working directory: %v", err)
+	}
+
+	// Change to temp directory for test
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("failed to change to temp directory: %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(originalWd); err != nil {
+			t.Errorf("failed to restore working directory: %v", err)
+		}
+	}()
+
+	config := &types.AppConfig{
+		AppName:   "test-app",
+		Namespace: "default",
+		Plugins: []plugins.PluginConfig{
+			{
+				PluginName: "imageupdate",
+				Values: map[string]interface{}{
+					"automation_name":          "test-automation",
+					"image_repositories":       `[{"name":"app","image":"myregistry/app","interval":"6h"}]`,
+					"image_policies":           `[{"name":"app","repository":"app","policyType":"semver","range":"*"}]`,
+					"git_repository_name":      "flux-system",
+					"git_repository_namespace": "flux-system",
+					"update_path":              "./apps/test",
+					"git_branch":               "main",
+					"author_name":              "Test Author",
+					"author_email":             "test@example.com",
+					"automation_interval":      "10m",
+					"update_strategy":          "Setters",
+					"commit_message_template":  "chore: update versions",
+				},
+			},
+			{
+				PluginName: "externalsecret",
+				Values: map[string]interface{}{
+					"name":               "test-secret",
+					"secret_store_type":  "ClusterSecretStore",
+					"secret_store_name":  "vault-backend",
+					"secret_key":         "secret/myapp",
+					"target_secret_name": "test-target",
+					"refresh_interval":   "60m",
+				},
+			},
+		},
+	}
+
+	appDir := filepath.Join(tempDir, config.AppName)
+	if err := os.MkdirAll(appDir, 0755); err != nil {
+		t.Fatalf("failed to create app directory: %v", err)
+	}
+
+	pluginFiles, err := generatePluginFiles(config, appDir)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	// Should have 4 files total: 3 from imageupdate + 1 from externalsecret
+	expectedCount := 4
+	if len(pluginFiles) != expectedCount {
+		t.Errorf("expected %d plugin files, got %d", expectedCount, len(pluginFiles))
+	}
+
+	// Check specific files exist
+	expectedFiles := []string{
+		"image-repository.yaml",
+		"image-policy.yaml",
+		"image-update-automation.yaml",
+		"dependencies/external-secret-test-target.yaml",
+	}
+
+	for _, expectedFile := range expectedFiles {
+		found := false
+		for _, actualFile := range pluginFiles {
+			if actualFile == expectedFile {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected plugin file %s not found in result", expectedFile)
+		}
+
+		// Check if file actually exists
+		filePath := filepath.Join(appDir, expectedFile)
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			t.Errorf("expected file %s was not created", filePath)
+		}
 	}
 }
