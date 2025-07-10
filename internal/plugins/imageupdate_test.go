@@ -265,7 +265,7 @@ func TestImageUpdatePlugin_GenerateFile_EmptyArrays(t *testing.T) {
 	}
 }
 
-// Test validation of image repositories JSON
+// Test validation of image repositories JSON.
 func TestImageUpdatePlugin_ValidateImageRepositories(t *testing.T) {
 	plugin := NewImageUpdatePlugin()
 
@@ -374,7 +374,7 @@ func TestImageUpdatePlugin_ValidateImageRepositories(t *testing.T) {
 	}
 }
 
-// Test validation of image policies JSON
+// Test validation of image policies JSON.
 func TestImageUpdatePlugin_ValidateImagePolicies(t *testing.T) {
 	plugin := NewImageUpdatePlugin()
 
@@ -571,7 +571,7 @@ func TestImageUpdatePlugin_ValidateImagePolicies(t *testing.T) {
 	}
 }
 
-// Test individual validation helper methods
+// Test individual validation helper methods.
 func TestImageUpdatePlugin_ValidateSingleRepository(t *testing.T) {
 	plugin := NewImageUpdatePlugin()
 
@@ -637,7 +637,7 @@ func TestImageUpdatePlugin_ValidateSingleRepository(t *testing.T) {
 	}
 }
 
-// Test individual policy validation methods
+// Test individual policy validation methods.
 func TestImageUpdatePlugin_ValidateSinglePolicy(t *testing.T) {
 	plugin := NewImageUpdatePlugin()
 
@@ -719,7 +719,7 @@ func TestImageUpdatePlugin_ValidateSinglePolicy(t *testing.T) {
 	}
 }
 
-// Test semver policy validation
+// Test semver policy validation.
 func TestImageUpdatePlugin_ValidateSemverPolicy(t *testing.T) {
 	plugin := NewImageUpdatePlugin()
 
@@ -774,7 +774,7 @@ func TestImageUpdatePlugin_ValidateSemverPolicy(t *testing.T) {
 	}
 }
 
-// Test numerical policy validation
+// Test numerical policy validation.
 func TestImageUpdatePlugin_ValidateNumericalPolicy(t *testing.T) {
 	plugin := NewImageUpdatePlugin()
 
@@ -877,7 +877,7 @@ func TestImageUpdatePlugin_ValidateNumericalPolicy(t *testing.T) {
 	}
 }
 
-// Test GenerateFile with invalid JSON data
+// Test GenerateFile with invalid JSON data.
 func TestImageUpdatePlugin_GenerateFile_InvalidJSON(t *testing.T) {
 	plugin := NewImageUpdatePlugin()
 
@@ -916,7 +916,7 @@ func TestImageUpdatePlugin_GenerateFile_InvalidJSON(t *testing.T) {
 	}
 }
 
-// Test GenerateFile with multiple repositories and policies
+// Test GenerateFile with multiple repositories and policies.
 func TestImageUpdatePlugin_GenerateFile_MultipleItems(t *testing.T) {
 	plugin := NewImageUpdatePlugin()
 
@@ -990,7 +990,7 @@ func TestImageUpdatePlugin_GenerateFile_MultipleItems(t *testing.T) {
 	}
 }
 
-// Test GenerateFile with missing fields
+// Test GenerateFile with missing fields.
 func TestImageUpdatePlugin_GenerateFile_MissingFields(t *testing.T) {
 	plugin := NewImageUpdatePlugin()
 
@@ -1022,7 +1022,7 @@ func TestImageUpdatePlugin_GenerateFile_MissingFields(t *testing.T) {
 	}
 }
 
-// Test template file generation errors
+// Test template file generation errors.
 func TestImageUpdatePlugin_GenerateFile_TemplateErrors(t *testing.T) {
 	plugin := NewImageUpdatePlugin()
 
@@ -1054,7 +1054,7 @@ func TestImageUpdatePlugin_GenerateFile_TemplateErrors(t *testing.T) {
 	}
 }
 
-// Test generateSingleFile method directly
+// Test generateSingleFile method directly.
 func TestImageUpdatePlugin_GenerateSingleFile(t *testing.T) {
 	plugin := NewImageUpdatePlugin()
 
@@ -1092,7 +1092,7 @@ namespace: {{.Namespace}}`
 	}
 }
 
-// Test generateSingleFile with invalid template
+// Test generateSingleFile with invalid template.
 func TestImageUpdatePlugin_GenerateSingleFile_InvalidTemplate(t *testing.T) {
 	plugin := NewImageUpdatePlugin()
 
@@ -1114,7 +1114,7 @@ func TestImageUpdatePlugin_GenerateSingleFile_InvalidTemplate(t *testing.T) {
 	}
 }
 
-// Test constants
+// Test constants.
 func TestImageUpdatePlugin_Constants(t *testing.T) {
 	if PolicyTypeSemver != "semver" {
 		t.Errorf("expected PolicyTypeSemver to be 'semver', got '%s'", PolicyTypeSemver)

@@ -290,7 +290,7 @@ func TestGenerateFluxStructure_DirectoryCreationError(t *testing.T) {
 	}
 }
 
-// Test generatePluginFiles function
+// Test generatePluginFiles function.
 func TestGeneratePluginFiles(t *testing.T) {
 	tempDir := t.TempDir()
 	originalWd, err := os.Getwd()
@@ -460,7 +460,7 @@ func TestGeneratePluginFiles(t *testing.T) {
 	}
 }
 
-// Test GenerateFluxStructure with imageupdate plugin
+// Test GenerateFluxStructure with imageupdate plugin.
 func TestGenerateFluxStructure_WithImageUpdatePlugin(t *testing.T) {
 	config := &types.AppConfig{
 		AppName:      "test-app",
@@ -555,7 +555,7 @@ func TestGenerateFluxStructure_WithImageUpdatePlugin(t *testing.T) {
 	}
 }
 
-// Test generatePluginFiles with multiple plugins
+// Test generatePluginFiles with multiple plugins.
 func TestGeneratePluginFiles_MultiplePlugins(t *testing.T) {
 	tempDir := t.TempDir()
 	originalWd, err := os.Getwd()
