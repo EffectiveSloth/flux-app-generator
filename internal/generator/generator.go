@@ -34,7 +34,14 @@ func generateFromTemplateString(templateStr, outputPath string, data interface{}
 		}
 	}()
 
-	return tmpl.Execute(file, data)
+	err = tmpl.Execute(file, data)
+	if err != nil {
+		return err
+	}
+
+	// Ensure file ends with a newline
+	_, err = file.WriteString("\n")
+	return err
 }
 
 func generateHelmRepository(config *types.AppConfig, appDir string) error {
@@ -56,11 +63,15 @@ func generateHelmRelease(config *types.AppConfig, appDir string) error {
 func generateHelmValues(config *types.AppConfig, appDir string) error {
 	outputPath := filepath.Join(appDir, "release", "helm-values.yaml")
 	if raw, ok := config.Values["__raw_yaml__"]; ok {
-		// Write raw YAML directly
-		return os.WriteFile(outputPath, []byte(raw.(string)), 0600)
+		// Write raw YAML directly, ensuring it ends with a newline
+		content := raw.(string)
+		if content != "" && content[len(content)-1] != '\n' {
+			content += "\n"
+		}
+		return os.WriteFile(outputPath, []byte(content), 0600)
 	}
-	// Just create an empty file
-	return os.WriteFile(outputPath, []byte{}, 0600)
+	// Create an empty file with just a newline
+	return os.WriteFile(outputPath, []byte("\n"), 0600)
 }
 
 func generateKustomization(config *types.AppConfig, appDir string) error {
