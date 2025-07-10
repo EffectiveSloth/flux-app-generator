@@ -4,7 +4,7 @@ BINARY_NAME=flux-app-generator
 CMD_PATH=cmd/flux-app-generator
 DIST_DIR=dist
 
-build:
+build: clean
 	mkdir -p $(DIST_DIR)
 	go build -o $(DIST_DIR)/$(BINARY_NAME) ./$(CMD_PATH)
 
@@ -22,7 +22,7 @@ clean:
 
 help:
 	@echo "Available targets:"
-	@echo "  build   - Build the CLI binary in dist/"
+	@echo "  build   - Clean and build the CLI binary in dist/"
 	@echo "  run     - Build and run the CLI from dist/"
 	@echo "  test    - Run tests"
 	@echo "  lint    - Lint the codebase (requires golangci-lint)"

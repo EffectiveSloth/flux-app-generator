@@ -1,5 +1,9 @@
 package types
 
+import (
+	"github.com/EffectiveSloth/flux-app-generator/internal/plugins"
+)
+
 type AppConfig struct {
 	AppName      string
 	Namespace    string
@@ -9,4 +13,6 @@ type AppConfig struct {
 	ChartVersion string
 	Interval     string
 	Values       map[string]interface{}
+	Plugins      []plugins.PluginConfig
+	PluginFiles  []string // Relative paths to plugin-generated files
 }

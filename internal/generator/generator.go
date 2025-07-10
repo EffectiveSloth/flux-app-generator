@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 
+	"github.com/EffectiveSloth/flux-app-generator/internal/plugins"
 	"github.com/EffectiveSloth/flux-app-generator/internal/types"
 )
 
@@ -107,11 +109,82 @@ func GenerateFluxStructure(config *types.AppConfig) error {
 	if err := generateHelmValues(config, appDir); err != nil {
 		return err
 	}
+
+	// Generate plugin files first
+	pluginFiles, err := generatePluginFiles(config, appDir)
+	if err != nil {
+		return err
+	}
+	config.PluginFiles = pluginFiles
+
+	// Generate kustomization.yaml after plugin files are generated
 	if err := generateKustomization(config, appDir); err != nil {
 		return err
 	}
 
 	fmt.Printf("\n✅ Generated Flux structure for '%s' in namespace '%s'\n", config.AppName, config.Namespace)
 	fmt.Printf("📁 Files created in directory: %s/\n", appDir)
+
+	// Print plugin summary if any plugins were generated
+	if len(config.Plugins) > 0 {
+		fmt.Printf("🔌 Generated %d plugin file(s):\n", len(config.Plugins))
+		for _, pluginConfig := range config.Plugins {
+			fmt.Printf("   - %s\n", pluginConfig.PluginName)
+		}
+	}
+
 	return nil
+}
+
+// generatePluginFiles generates files for all configured plugins and returns their paths.
+func generatePluginFiles(config *types.AppConfig, appDir string) ([]string, error) {
+	if len(config.Plugins) == 0 {
+		return nil, nil // No plugins to generate
+	}
+
+	// Create plugin registry to access plugin definitions
+	registry := plugins.NewRegistry()
+	var pluginFiles []string
+
+	for _, pluginConfig := range config.Plugins {
+		plugin, exists := registry.Get(pluginConfig.PluginName)
+		if !exists {
+			return nil, fmt.Errorf("plugin '%s' not found in registry", pluginConfig.PluginName)
+		}
+
+		// Validate plugin configuration
+		if err := plugin.Validate(pluginConfig.Values); err != nil {
+			return nil, fmt.Errorf("validation failed for plugin '%s': %w", pluginConfig.PluginName, err)
+		}
+
+		// Get the file path that will be generated
+		templateData := make(map[string]interface{})
+		for k, v := range pluginConfig.Values {
+			templateData[k] = v
+		}
+		templateData["Namespace"] = config.Namespace
+
+		// Parse the file path template to get the actual path
+		pathTmpl, err := template.New("filepath").Parse(plugin.FilePath())
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse file path template for plugin '%s': %w", pluginConfig.PluginName, err)
+		}
+
+		var pathBuf strings.Builder
+		if err := pathTmpl.Execute(&pathBuf, templateData); err != nil {
+			return nil, fmt.Errorf("failed to execute file path template for plugin '%s': %w", pluginConfig.PluginName, err)
+		}
+
+		filePath := pathBuf.String()
+		pluginFiles = append(pluginFiles, filePath)
+
+		// Generate the plugin file
+		if err := plugin.GenerateFile(pluginConfig.Values, appDir, config.Namespace); err != nil {
+			return nil, fmt.Errorf("failed to generate file for plugin '%s': %w", pluginConfig.PluginName, err)
+		}
+
+		fmt.Printf("✅ Generated %s plugin file\n", pluginConfig.PluginName)
+	}
+
+	return pluginFiles, nil
 }

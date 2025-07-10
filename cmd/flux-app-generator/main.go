@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/charmbracelet/huh"
 
 	"github.com/EffectiveSloth/flux-app-generator/internal/generator"
 	"github.com/EffectiveSloth/flux-app-generator/internal/helm"
+	"github.com/EffectiveSloth/flux-app-generator/internal/plugins"
 	"github.com/EffectiveSloth/flux-app-generator/internal/types"
 )
 
@@ -36,6 +38,10 @@ var (
 	interval        string
 	valuesPrefill   string
 	versionFetcher  = helm.NewVersionFetcher()
+
+	// Plugin-related variables.
+	pluginRegistry  = plugins.NewRegistry()
+	pluginInstances []plugins.PluginConfig // List of configured plugin instances.
 )
 
 func main() {
@@ -45,13 +51,12 @@ func main() {
 	}
 
 	// Set default values
-	namespace = "default"
+	namespace = ""
 	interval = "5m"
 	valuesPrefill = "empty"
 
-	// Create the form with multiple groups
-	form := huh.NewForm(
-		// Group 1: Basic Application Info
+	// Step 1: Basic Application Info
+	appInfoForm := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Application Name").
@@ -72,7 +77,7 @@ func main() {
 				Value(&namespace).
 				Validate(func(s string) error {
 					if s == "" {
-						namespace = "default"
+						return fmt.Errorf("namespace is required")
 					}
 					return nil
 				}),
@@ -101,8 +106,14 @@ func main() {
 					return nil
 				}),
 		).Title("📝 Application Configuration"),
+	).WithTheme(huh.ThemeCharm())
 
-		// Group 2: Chart Selection (Dynamic)
+	if err := appInfoForm.Run(); err != nil {
+		log.Fatal(err)
+	}
+
+	// Step 2: Chart Selection
+	chartForm := huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Select Chart").
@@ -156,8 +167,14 @@ func main() {
 				}, &selectedChart).
 				Value(&selectedVersion),
 		).Title("📦 Chart Selection"),
+	).WithTheme(huh.ThemeCharm())
 
-		// Group 3: Final Configuration
+	if err := chartForm.Run(); err != nil {
+		log.Fatal(err)
+	}
+
+	// Step 3: Final Configuration
+	finalForm := huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Sync Interval").
@@ -182,8 +199,7 @@ func main() {
 		).Title("⚙️  Configuration"),
 	).WithTheme(huh.ThemeCharm())
 
-	// Run the form
-	if err := form.Run(); err != nil {
+	if err := finalForm.Run(); err != nil {
 		log.Fatal(err)
 	}
 
@@ -191,6 +207,11 @@ func main() {
 	if appName == "" || helmRepoName == "" || helmRepoURL == "" || selectedChart == "" || selectedVersion == "" {
 		fmt.Println("❌ Missing required information. Please run the application again.")
 		os.Exit(1)
+	}
+
+	// Step 4: Interactive Plugin Menu
+	if err := runInteractivePluginMenu(); err != nil {
+		log.Fatal(err)
 	}
 
 	// Create configuration
@@ -203,6 +224,8 @@ func main() {
 		ChartVersion: selectedVersion,
 		Interval:     interval,
 		Values:       make(map[string]interface{}),
+		Plugins:      pluginInstances, // Use the new plugin instances list
+		PluginFiles:  []string{},      // Will be populated by generatePluginFiles
 	}
 
 	// Handle values prefill
@@ -231,6 +254,14 @@ func main() {
 	fmt.Printf("🏷️  Namespace: %s\n", namespace)
 	fmt.Printf("📦 Chart: %s@%s\n", selectedChart, selectedVersion)
 	fmt.Printf("🔄 Sync Interval: %s\n", interval)
+
+	if len(pluginInstances) > 0 {
+		fmt.Printf("🔌 Plugin Instances: %d\n", len(pluginInstances))
+		for i, instance := range pluginInstances {
+			fmt.Printf("   %d. %s\n", i+1, instance.PluginName)
+		}
+	}
+
 	fmt.Printf("\n💡 Next steps:\n")
 	fmt.Printf("   1. Review the generated files in the '%s/' directory\n", appName)
 	fmt.Printf("   2. Customize the values in '%s/release/helm-values.yaml'\n", appName)
@@ -253,6 +284,223 @@ func loadTemplates() error {
 		}
 		*target = content
 	}
+
+	return nil
+}
+
+// runInteractivePluginMenu provides an interactive menu for managing plugin instances.
+func runInteractivePluginMenu() error {
+	for {
+		// Build menu options
+		var options []huh.Option[string]
+
+		// Add available plugins
+		availablePlugins := pluginRegistry.List()
+		for _, plugin := range availablePlugins {
+			options = append(options, huh.NewOption(
+				fmt.Sprintf("➕ Add %s - %s", plugin.Name(), plugin.Description()),
+				fmt.Sprintf("add_%s", plugin.Name()),
+			))
+		}
+
+		// Add done option
+		options = append(options, huh.NewOption("✅ Done with plugins", "done"))
+
+		// Build description with current plugin instances
+		var description string
+		if len(pluginInstances) == 0 {
+			description = "No plugin instances configured yet. Select a plugin to add."
+		} else {
+			description = fmt.Sprintf("Currently configured: %d plugin instance(s):\n", len(pluginInstances))
+			for i, instance := range pluginInstances {
+				// Get a brief description of this instance
+				instanceDesc := getPluginInstanceDescription(instance)
+				description += fmt.Sprintf("  %d. %s - %s\n", i+1, instance.PluginName, instanceDesc)
+			}
+			description += "\nSelect a plugin to add another instance, or choose Done."
+		}
+
+		var choice string
+		pluginMenuForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("Plugin Management").
+					Description(description).
+					Options(options...).
+					Value(&choice),
+			).Title("🔌 Plugin Manager"),
+		).WithTheme(huh.ThemeCharm())
+
+		if err := pluginMenuForm.Run(); err != nil {
+			return err
+		}
+
+		switch choice {
+		case "done":
+			return nil
+
+		default:
+			if strings.HasPrefix(choice, "add_") {
+				pluginName := strings.TrimPrefix(choice, "add_")
+				if err := configurePluginInstance(pluginName); err != nil {
+					return fmt.Errorf("error configuring plugin '%s': %w", pluginName, err)
+				}
+			}
+		}
+	}
+}
+
+// getPluginInstanceDescription returns a brief description of a plugin instance.
+func getPluginInstanceDescription(instance plugins.PluginConfig) string {
+	// For external secret, show the target secret name if available
+	if instance.PluginName == "externalsecret" {
+		if targetName, ok := instance.Values["target_secret_name"].(string); ok && targetName != "" {
+			return targetName
+		}
+		if name, ok := instance.Values["name"].(string); ok && name != "" {
+			return name
+		}
+	}
+
+	// For other plugins, try to find a meaningful identifier
+	if name, ok := instance.Values["name"].(string); ok && name != "" {
+		return name
+	}
+
+	return "configured"
+}
+
+// configurePluginInstance handles configuration of a single plugin instance.
+func configurePluginInstance(pluginName string) error {
+	plugin, exists := pluginRegistry.Get(pluginName)
+	if !exists {
+		return fmt.Errorf("plugin '%s' not found", pluginName)
+	}
+
+	variables := plugin.Variables()
+	if len(variables) == 0 {
+		// Plugin has no variables, just add it
+		pluginInstances = append(pluginInstances, plugins.PluginConfig{
+			PluginName: pluginName,
+			Values:     make(map[string]interface{}),
+		})
+		return nil
+	}
+
+	// Create storage for this plugin instance's values
+	pluginValues := make(map[string]interface{})
+
+	// Create form fields for each variable
+	var fields []huh.Field
+
+	for _, variable := range variables {
+		switch variable.Type {
+		case plugins.VariableTypeText:
+			var value string
+			if variable.Default != nil {
+				if defaultStr, ok := variable.Default.(string); ok {
+					value = defaultStr
+				}
+			}
+
+			field := huh.NewInput().
+				Title(variable.Name).
+				Description(variable.Description).
+				Value(&value)
+
+			if variable.Required {
+				field = field.Validate(func(s string) error {
+					if s == "" {
+						return fmt.Errorf("%s is required", variable.Name)
+					}
+					pluginValues[variable.Name] = s
+					return nil
+				})
+			} else {
+				field = field.Validate(func(s string) error {
+					pluginValues[variable.Name] = s
+					return nil
+				})
+			}
+
+			fields = append(fields, field)
+
+		case plugins.VariableTypeBool, plugins.VariableTypeCheckbox:
+			var value bool
+			if variable.Default != nil {
+				if defaultBool, ok := variable.Default.(bool); ok {
+					value = defaultBool
+				}
+			}
+
+			field := huh.NewConfirm().
+				Title(variable.Name).
+				Description(variable.Description).
+				Value(&value).
+				Validate(func(b bool) error {
+					pluginValues[variable.Name] = b
+					return nil
+				})
+
+			fields = append(fields, field)
+
+		case plugins.VariableTypeSelect:
+			var value string
+			if variable.Default != nil {
+				if defaultStr, ok := variable.Default.(string); ok {
+					value = defaultStr
+				}
+			}
+
+			options := make([]huh.Option[string], len(variable.Options))
+			for i, option := range variable.Options {
+				optionValue := ""
+				if str, ok := option.Value.(string); ok {
+					optionValue = str
+				}
+				options[i] = huh.NewOption(option.Label, optionValue)
+			}
+
+			field := huh.NewSelect[string]().
+				Title(variable.Name).
+				Description(variable.Description).
+				Options(options...).
+				Value(&value).
+				Validate(func(s string) error {
+					pluginValues[variable.Name] = s
+					return nil
+				})
+
+			if variable.Required {
+				field = field.Validate(func(s string) error {
+					if s == "" {
+						return fmt.Errorf("%s is required", variable.Name)
+					}
+					pluginValues[variable.Name] = s
+					return nil
+				})
+			}
+
+			fields = append(fields, field)
+		}
+	}
+
+	if len(fields) > 0 {
+		// Create and run form for this plugin instance
+		configForm := huh.NewForm(
+			huh.NewGroup(fields...).Title(fmt.Sprintf("🔧 Configure %s Plugin Instance", plugin.Name())),
+		).WithTheme(huh.ThemeCharm())
+
+		if err := configForm.Run(); err != nil {
+			return fmt.Errorf("error collecting configuration: %w", err)
+		}
+	}
+
+	// Add the configured instance
+	pluginInstances = append(pluginInstances, plugins.PluginConfig{
+		PluginName: pluginName,
+		Values:     pluginValues,
+	})
 
 	return nil
 }
