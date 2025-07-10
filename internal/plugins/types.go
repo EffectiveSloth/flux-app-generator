@@ -64,6 +64,17 @@ type Plugin interface {
 	GenerateFile(values map[string]interface{}, appDir, namespace string) error
 }
 
+// CustomConfigPlugin defines an interface for plugins that need custom configuration collection.
+// This allows plugins to implement their own multi-screen or advanced configuration logic.
+type CustomConfigPlugin interface {
+	Plugin
+
+	// CollectCustomConfig handles custom configuration collection beyond standard variables.
+	// This method is called after standard variables are collected.
+	// It should modify the values map to include any additional configuration.
+	CollectCustomConfig(values map[string]interface{}) error
+}
+
 // BasePlugin provides common functionality for plugins.
 type BasePlugin struct {
 	name        string

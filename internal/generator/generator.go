@@ -157,6 +157,26 @@ func generatePluginFiles(config *types.AppConfig, appDir string) ([]string, erro
 			return nil, fmt.Errorf("validation failed for plugin '%s': %w", pluginConfig.PluginName, err)
 		}
 
+		// Special handling for imageupdate plugin which generates multiple files
+		if pluginConfig.PluginName == "imageupdate" {
+			// Generate the plugin files
+			if err := plugin.GenerateFile(pluginConfig.Values, appDir, config.Namespace); err != nil {
+				return nil, fmt.Errorf("failed to generate file for plugin '%s': %w", pluginConfig.PluginName, err)
+			}
+
+			// Add all three imageupdate files to kustomization
+			imageUpdateFiles := []string{
+				"image-repository.yaml",
+				"image-policy.yaml",
+				"image-update-automation.yaml",
+			}
+			pluginFiles = append(pluginFiles, imageUpdateFiles...)
+
+			fmt.Printf("✅ Generated %s plugin files\n", pluginConfig.PluginName)
+			continue
+		}
+
+		// Regular plugin handling
 		// Get the file path that will be generated
 		templateData := make(map[string]interface{})
 		for k, v := range pluginConfig.Values {
