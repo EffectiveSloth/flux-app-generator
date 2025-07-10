@@ -496,6 +496,13 @@ func configurePluginInstance(pluginName string) error {
 		}
 	}
 
+	// Check if this plugin needs custom configuration
+	if customPlugin, ok := plugin.(plugins.CustomConfigPlugin); ok {
+		if err := customPlugin.CollectCustomConfig(pluginValues); err != nil {
+			return fmt.Errorf("error collecting custom configuration: %w", err)
+		}
+	}
+
 	// Add the configured instance
 	pluginInstances = append(pluginInstances, plugins.PluginConfig{
 		PluginName: pluginName,
