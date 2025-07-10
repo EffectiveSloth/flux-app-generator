@@ -253,11 +253,64 @@ Configure external secret management with the following options:
 
 You can configure multiple instances of the same plugin type for different secrets or configurations.
 
+## 🚀 Releases
+
+This project uses automated releases with [Release Please](https://github.com/googleapis/release-please) based on [Conventional Commits](https://www.conventionalcommits.org/).
+
+### How Releases Work
+
+- **Automatic Changelog Generation** - Changes are automatically categorized and documented
+- **Semantic Versioning** - Version numbers follow [SemVer](https://semver.org/) based on commit types
+- **Release PRs** - Release Please creates and maintains release pull requests
+- **Cross-Platform Binaries** - Releases include compiled binaries for Linux, macOS, and Windows
+
+### Commit Message Format
+
+Use conventional commit messages to trigger appropriate version bumps:
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+**Types that trigger releases:**
+- `feat:` - New feature (minor version bump)
+- `fix:` - Bug fix (patch version bump)
+- `feat!:` or `fix!:` - Breaking change (major version bump)
+
+**Other useful types:**
+- `docs:` - Documentation changes
+- `chore:` - Maintenance tasks
+- `test:` - Test improvements
+- `refactor:` - Code refactoring
+
+**Examples:**
+```bash
+feat: add support for Kubernetes secrets plugin
+fix: resolve chart version fetching timeout
+feat!: change plugin configuration API (breaking change)
+docs: update installation instructions
+chore: bump dependencies to latest versions
+```
+
+### Release Process
+
+1. **Development** - Make changes using conventional commit messages
+2. **Release PR** - Release Please automatically creates/updates a release PR
+3. **Review & Merge** - Review the generated changelog and merge the release PR
+4. **Automated Release** - GitHub Actions automatically:
+   - Creates a GitHub release with changelog
+   - Builds and attaches cross-platform binaries
+   - Generates checksums for security verification
+
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
+3. Make your changes with conventional commit messages
 4. Add tests for new functionality
 5. Ensure all tests pass
 6. Submit a pull request
@@ -265,6 +318,7 @@ You can configure multiple instances of the same plugin type for different secre
 ### Development Guidelines
 
 - Follow Go best practices and conventions
+- Use conventional commit messages for automatic release management
 - Add tests for new features and plugins
 - Use mocks for network-dependent code
 - Update documentation as needed
