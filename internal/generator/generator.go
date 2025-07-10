@@ -7,6 +7,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/EffectiveSloth/flux-app-generator/internal/kubernetes"
 	"github.com/EffectiveSloth/flux-app-generator/internal/plugins"
 	"github.com/EffectiveSloth/flux-app-generator/internal/types"
 )
@@ -143,11 +144,11 @@ func generatePluginFiles(config *types.AppConfig, appDir string) ([]string, erro
 	}
 
 	// Create plugin registry to access plugin definitions
-	registry := plugins.NewRegistry()
+	pluginRegistry := plugins.NewRegistry(&kubernetes.MockKubeLister{})
 	var pluginFiles []string
 
 	for _, pluginConfig := range config.Plugins {
-		plugin, exists := registry.Get(pluginConfig.PluginName)
+		plugin, exists := pluginRegistry.Get(pluginConfig.PluginName)
 		if !exists {
 			return nil, fmt.Errorf("plugin '%s' not found in registry", pluginConfig.PluginName)
 		}

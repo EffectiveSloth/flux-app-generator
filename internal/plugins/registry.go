@@ -2,17 +2,21 @@ package plugins
 
 import (
 	"fmt"
+
+	"github.com/EffectiveSloth/flux-app-generator/internal/kubernetes"
 )
 
 // Registry manages all available plugins.
 type Registry struct {
-	plugins map[string]Plugin
+	plugins    map[string]Plugin
+	kubeClient kubernetes.KubeLister
 }
 
 // NewRegistry creates a new plugin registry with all built-in plugins registered.
-func NewRegistry() *Registry {
+func NewRegistry(kubeClient kubernetes.KubeLister) *Registry {
 	registry := &Registry{
-		plugins: make(map[string]Plugin),
+		plugins:    make(map[string]Plugin),
+		kubeClient: kubeClient,
 	}
 
 	// Register built-in plugins
@@ -24,7 +28,7 @@ func NewRegistry() *Registry {
 // registerBuiltinPlugins registers all built-in plugins.
 func (r *Registry) registerBuiltinPlugins() {
 	// Register the ExternalSecret plugin
-	if err := r.Register(NewExternalSecretPlugin()); err != nil {
+	if err := r.Register(NewExternalSecretPlugin(r.kubeClient)); err != nil {
 		panic(fmt.Sprintf("failed to register built-in externalsecret plugin: %v", err))
 	}
 

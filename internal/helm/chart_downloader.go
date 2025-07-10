@@ -42,7 +42,12 @@ func DownloadAndExtractValuesYAML(repoURL, chartName, chartVersion string) (stri
 	if err != nil {
 		return "", fmt.Errorf("failed to download chart: %w", err)
 	}
-	defer resp2.Body.Close()
+	defer func() {
+		if closeErr := resp2.Body.Close(); closeErr != nil {
+			// Log or handle close error appropriately in production
+			_ = closeErr
+		}
+	}()
 	if resp2.StatusCode != 200 {
 		return "", fmt.Errorf("failed to download chart: status %d", resp2.StatusCode)
 	}
