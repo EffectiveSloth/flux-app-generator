@@ -37,7 +37,7 @@ func TestNewClient_WithInvalidKubeconfig(t *testing.T) {
 	invalidKubeconfig := filepath.Join(tempDir, "invalid-config")
 
 	// Write invalid content
-	err := os.WriteFile(invalidKubeconfig, []byte("invalid yaml content"), 0600)
+	err := os.WriteFile(invalidKubeconfig, []byte("invalid yaml content"), 0o600)
 	require.NoError(t, err)
 
 	// Set KUBECONFIG to the invalid file
@@ -78,7 +78,7 @@ users:
   user:
     token: test-token
 `
-	err := os.WriteFile(validKubeconfig, []byte(validConfig), 0600)
+	err := os.WriteFile(validKubeconfig, []byte(validConfig), 0o600)
 	require.NoError(t, err)
 
 	// Set KUBECONFIG to the valid file
@@ -339,7 +339,7 @@ func TestClient_GetSecretStores_WithNilDynamicClient(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestClient_InterfaceCompliance(t *testing.T) {
+func TestClient_InterfaceCompliance(_ *testing.T) {
 	// Test that Client implements KubeLister interface
 	var _ KubeLister = (*Client)(nil)
 }

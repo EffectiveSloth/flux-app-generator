@@ -12,50 +12,62 @@ type MockKubeLister struct {
 	mock.Mock
 }
 
-func (m *MockKubeLister) GetNamespaces(ctx context.Context) ([]string, error) {
+// GetNamespaces returns a list of mock Kubernetes namespaces.
+func (m *MockKubeLister) GetNamespaces(_ context.Context) ([]string, error) {
 	return []string{"default", "kube-system", "kube-public"}, nil
 }
 
-func (m *MockKubeLister) GetServices(ctx context.Context, namespace string) ([]string, error) {
+// GetServices returns a list of mock Kubernetes services in the specified namespace.
+func (m *MockKubeLister) GetServices(_ context.Context, _ string) ([]string, error) {
 	return []string{"kubernetes", "nginx-service"}, nil
 }
 
-func (m *MockKubeLister) GetConfigMaps(ctx context.Context, namespace string) ([]string, error) {
+// GetConfigMaps returns a list of mock Kubernetes configmaps in the specified namespace.
+func (m *MockKubeLister) GetConfigMaps(_ context.Context, _ string) ([]string, error) {
 	return []string{"kube-root-ca.crt", "my-config"}, nil
 }
 
-func (m *MockKubeLister) GetSecrets(ctx context.Context, namespace string) ([]string, error) {
+// GetSecrets returns a list of mock Kubernetes secrets in the specified namespace.
+func (m *MockKubeLister) GetSecrets(_ context.Context, _ string) ([]string, error) {
 	return []string{"default-token-abc123", "my-secret"}, nil
 }
 
-func (m *MockKubeLister) GetPods(ctx context.Context, namespace string) ([]string, error) {
+// GetPods returns a list of mock Kubernetes pods in the specified namespace.
+func (m *MockKubeLister) GetPods(_ context.Context, _ string) ([]string, error) {
 	return []string{"nginx-pod", "app-pod"}, nil
 }
 
-func (m *MockKubeLister) GetDeployments(ctx context.Context, namespace string) ([]string, error) {
+// GetDeployments returns a list of mock Kubernetes deployments in the specified namespace.
+func (m *MockKubeLister) GetDeployments(_ context.Context, _ string) ([]string, error) {
 	return []string{"nginx-deployment", "app-deployment"}, nil
 }
 
-func (m *MockKubeLister) GetStatefulSets(ctx context.Context, namespace string) ([]string, error) {
+// GetStatefulSets returns a list of mock Kubernetes statefulsets in the specified namespace.
+func (m *MockKubeLister) GetStatefulSets(_ context.Context, _ string) ([]string, error) {
 	return []string{"redis-statefulset", "mysql-statefulset"}, nil
 }
 
-func (m *MockKubeLister) GetDaemonSets(ctx context.Context, namespace string) ([]string, error) {
+// GetDaemonSets returns a list of mock Kubernetes daemonsets in the specified namespace.
+func (m *MockKubeLister) GetDaemonSets(_ context.Context, _ string) ([]string, error) {
 	return []string{"fluentd-daemonset", "node-exporter"}, nil
 }
 
-func (m *MockKubeLister) GetPersistentVolumeClaims(ctx context.Context, namespace string) ([]string, error) {
+// GetPersistentVolumeClaims returns a list of mock Kubernetes persistent volume claims in the specified namespace.
+func (m *MockKubeLister) GetPersistentVolumeClaims(_ context.Context, _ string) ([]string, error) {
 	return []string{"data-pvc", "backup-pvc"}, nil
 }
 
-func (m *MockKubeLister) GetClusterSecretStores(ctx context.Context) ([]string, error) {
+// GetClusterSecretStores returns a list of mock External Secrets Operator ClusterSecretStores.
+func (m *MockKubeLister) GetClusterSecretStores(_ context.Context) ([]string, error) {
 	return []string{"vault-backend", "aws-secrets-manager", "azure-key-vault"}, nil
 }
 
-func (m *MockKubeLister) GetSecretStores(ctx context.Context, namespace string) ([]string, error) {
+// GetSecretStores returns a list of mock External Secrets Operator SecretStores in the specified namespace.
+func (m *MockKubeLister) GetSecretStores(_ context.Context, _ string) ([]string, error) {
 	return []string{"local-vault", "namespace-secrets"}, nil
 }
 
-func (m *MockKubeLister) TestConnection(ctx context.Context) error {
+// TestConnection tests the mock Kubernetes connection.
+func (m *MockKubeLister) TestConnection(_ context.Context) error {
 	return nil
 }

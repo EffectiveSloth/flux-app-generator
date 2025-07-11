@@ -11,12 +11,14 @@ import (
 )
 
 const (
-	// Policy type constants.
-	PolicyTypeSemver    = "semver"
+	// PolicyTypeSemver represents semantic version policy type.
+	PolicyTypeSemver = "semver"
+	// PolicyTypeTimestamp represents timestamp policy type.
 	PolicyTypeTimestamp = "timestamp"
+	// PolicyTypeNumerical represents numerical policy type.
 	PolicyTypeNumerical = "numerical"
 
-	// Default values.
+	// DefaultFluxNamespace is the default namespace where Flux is installed.
 	DefaultFluxNamespace = "flux-system"
 )
 

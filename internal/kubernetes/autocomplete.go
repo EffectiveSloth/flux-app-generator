@@ -1,3 +1,4 @@
+// Package kubernetes provides Kubernetes client functionality, auto-completion services, and TUI integration for resource management.
 package kubernetes
 
 import (
@@ -11,17 +12,28 @@ import (
 type ResourceType string
 
 const (
-	ResourceTypeNamespace             ResourceType = "namespace"
-	ResourceTypeService               ResourceType = "service"
-	ResourceTypeConfigMap             ResourceType = "configmap"
-	ResourceTypeSecret                ResourceType = "secret"
-	ResourceTypePod                   ResourceType = "pod"
-	ResourceTypeDeployment            ResourceType = "deployment"
-	ResourceTypeStatefulSet           ResourceType = "statefulset"
-	ResourceTypeDaemonSet             ResourceType = "daemonset"
+	// ResourceTypeNamespace represents Kubernetes namespace resources.
+	ResourceTypeNamespace ResourceType = "namespace"
+	// ResourceTypeService represents Kubernetes service resources.
+	ResourceTypeService ResourceType = "service"
+	// ResourceTypeConfigMap represents Kubernetes configmap resources.
+	ResourceTypeConfigMap ResourceType = "configmap"
+	// ResourceTypeSecret represents Kubernetes secret resources.
+	ResourceTypeSecret ResourceType = "secret"
+	// ResourceTypePod represents Kubernetes pod resources.
+	ResourceTypePod ResourceType = "pod"
+	// ResourceTypeDeployment represents Kubernetes deployment resources.
+	ResourceTypeDeployment ResourceType = "deployment"
+	// ResourceTypeStatefulSet represents Kubernetes statefulset resources.
+	ResourceTypeStatefulSet ResourceType = "statefulset"
+	// ResourceTypeDaemonSet represents Kubernetes daemonset resources.
+	ResourceTypeDaemonSet ResourceType = "daemonset"
+	// ResourceTypePersistentVolumeClaim represents Kubernetes persistent volume claim resources.
 	ResourceTypePersistentVolumeClaim ResourceType = "pvc"
-	ResourceTypeClusterSecretStore    ResourceType = "clustersecretstore"
-	ResourceTypeSecretStore           ResourceType = "secretstore"
+	// ResourceTypeClusterSecretStore represents External Secrets Operator ClusterSecretStore resources.
+	ResourceTypeClusterSecretStore ResourceType = "clustersecretstore"
+	// ResourceTypeSecretStore represents External Secrets Operator SecretStore resources.
+	ResourceTypeSecretStore ResourceType = "secretstore"
 )
 
 // AutoCompleteService provides auto-completion functionality for Kubernetes resources.

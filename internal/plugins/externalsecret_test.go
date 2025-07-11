@@ -194,7 +194,7 @@ func TestExternalSecretPlugin_FilePathGeneration(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestExternalSecretPlugin_InterfaceCompliance(t *testing.T) {
+func TestExternalSecretPlugin_InterfaceCompliance(_ *testing.T) {
 	mockClient := &kubernetes.MockKubeLister{}
 	plugin := NewExternalSecretPlugin(mockClient)
 

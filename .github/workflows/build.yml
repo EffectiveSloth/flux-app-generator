@@ -28,9 +28,7 @@ jobs:
       env:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}
-      run: |
-        mkdir -p dist
-        go build -o dist/flux-app-generator-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} ./cmd/flux-app-generator
+      run: make build-platform
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4

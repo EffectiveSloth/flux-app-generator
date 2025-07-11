@@ -173,7 +173,7 @@ func TestRegistry_PluginInterfaceCompliance(t *testing.T) {
 	require.NotNil(t, plugin)
 
 	// Test that plugin implements Plugin interface
-	var _ = plugin
+	_ = plugin
 }
 
 func TestRegistry_ConcurrentAccess(t *testing.T) {

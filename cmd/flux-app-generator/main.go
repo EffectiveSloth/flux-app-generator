@@ -1,3 +1,4 @@
+// Package main implements a command-line tool for generating Flux application configurations with Helm repositories and releases.
 package main
 
 import (
@@ -15,8 +16,8 @@ import (
 	"github.com/EffectiveSloth/flux-app-generator/internal/generator"
 	"github.com/EffectiveSloth/flux-app-generator/internal/helm"
 	"github.com/EffectiveSloth/flux-app-generator/internal/kubernetes"
+	"github.com/EffectiveSloth/flux-app-generator/internal/models"
 	"github.com/EffectiveSloth/flux-app-generator/internal/plugins"
-	"github.com/EffectiveSloth/flux-app-generator/internal/types"
 )
 
 //go:embed templates
@@ -249,7 +250,7 @@ func main() {
 	}
 
 	// Create configuration
-	config := &types.AppConfig{
+	config := &models.AppConfig{
 		AppName:      appName,
 		Namespace:    namespace,
 		HelmRepoName: helmRepoName,

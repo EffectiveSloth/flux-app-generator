@@ -1,3 +1,4 @@
+// Package helm provides functionality for interacting with Helm repositories, downloading charts, and fetching chart metadata.
 package helm
 
 import (

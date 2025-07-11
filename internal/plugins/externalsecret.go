@@ -1,3 +1,4 @@
+// Package plugins provides a plugin system for extending Flux application generation with additional Kubernetes resources.
 package plugins
 
 import (

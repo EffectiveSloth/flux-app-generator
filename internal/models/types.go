@@ -1,9 +1,11 @@
-package types
+// Package models provides data structure definitions for Flux application configuration and management.
+package models
 
 import (
 	"github.com/EffectiveSloth/flux-app-generator/internal/plugins"
 )
 
+// AppConfig represents the complete configuration for generating a Flux application.
 type AppConfig struct {
 	AppName      string
 	Namespace    string

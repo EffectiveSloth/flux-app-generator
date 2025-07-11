@@ -35,7 +35,7 @@ func TestTUIProvider_TextInput(t *testing.T) {
 func TestTUIProvider_NamespaceInputValidation(t *testing.T) {
 	mockClient := &MockKubeLister{}
 	mockClient.On("GetNamespaces", mock.Anything).Return([]string{"default", "kube-system", "test"}, nil)
-	
+
 	service := NewAutoCompleteService(mockClient)
 	provider := NewTUIProvider(service)
 
@@ -49,7 +49,7 @@ func TestTUIProvider_NamespaceInputValidation(t *testing.T) {
 func TestTUIProvider_NamespaceInputWithAutoComplete(t *testing.T) {
 	mockClient := &MockKubeLister{}
 	mockClient.On("GetNamespaces", mock.Anything).Return([]string{"default", "kube-system", "test"}, nil)
-	
+
 	service := NewAutoCompleteService(mockClient)
 	provider := NewTUIProvider(service)
 
@@ -73,7 +73,7 @@ func TestTUIProvider_ServiceInputWithEmptyNamespace(t *testing.T) {
 func TestTUIProvider_ServiceInputWithNamespace(t *testing.T) {
 	mockClient := &MockKubeLister{}
 	mockClient.On("GetServices", mock.Anything, "default").Return([]string{"service1", "service2"}, nil)
-	
+
 	service := NewAutoCompleteService(mockClient)
 	provider := NewTUIProvider(service)
 
@@ -86,7 +86,7 @@ func TestTUIProvider_ServiceInputWithNamespace(t *testing.T) {
 func TestTUIProvider_ConfigMapInput(t *testing.T) {
 	mockClient := &MockKubeLister{}
 	mockClient.On("GetConfigMaps", mock.Anything, "default").Return([]string{"config1", "config2"}, nil)
-	
+
 	service := NewAutoCompleteService(mockClient)
 	provider := NewTUIProvider(service)
 
@@ -99,7 +99,7 @@ func TestTUIProvider_ConfigMapInput(t *testing.T) {
 func TestTUIProvider_SecretInput(t *testing.T) {
 	mockClient := &MockKubeLister{}
 	mockClient.On("GetSecrets", mock.Anything, "default").Return([]string{"secret1", "secret2"}, nil)
-	
+
 	service := NewAutoCompleteService(mockClient)
 	provider := NewTUIProvider(service)
 
@@ -112,7 +112,7 @@ func TestTUIProvider_SecretInput(t *testing.T) {
 func TestTUIProvider_DeploymentInput(t *testing.T) {
 	mockClient := &MockKubeLister{}
 	mockClient.On("GetDeployments", mock.Anything, "default").Return([]string{"deployment1", "deployment2"}, nil)
-	
+
 	service := NewAutoCompleteService(mockClient)
 	provider := NewTUIProvider(service)
 
@@ -125,7 +125,7 @@ func TestTUIProvider_DeploymentInput(t *testing.T) {
 func TestTUIProvider_StatefulSetInput(t *testing.T) {
 	mockClient := &MockKubeLister{}
 	mockClient.On("GetStatefulSets", mock.Anything, "default").Return([]string{"statefulset1", "statefulset2"}, nil)
-	
+
 	service := NewAutoCompleteService(mockClient)
 	provider := NewTUIProvider(service)
 
@@ -138,7 +138,7 @@ func TestTUIProvider_StatefulSetInput(t *testing.T) {
 func TestTUIProvider_DaemonSetInput(t *testing.T) {
 	mockClient := &MockKubeLister{}
 	mockClient.On("GetDaemonSets", mock.Anything, "default").Return([]string{"daemonset1", "daemonset2"}, nil)
-	
+
 	service := NewAutoCompleteService(mockClient)
 	provider := NewTUIProvider(service)
 
@@ -151,7 +151,7 @@ func TestTUIProvider_DaemonSetInput(t *testing.T) {
 func TestTUIProvider_PVCInput(t *testing.T) {
 	mockClient := &MockKubeLister{}
 	mockClient.On("GetPersistentVolumeClaims", mock.Anything, "default").Return([]string{"pvc1", "pvc2"}, nil)
-	
+
 	service := NewAutoCompleteService(mockClient)
 	provider := NewTUIProvider(service)
 
@@ -175,7 +175,7 @@ func TestTUIProvider_ResourceSelectWithEmptyNamespace(t *testing.T) {
 func TestTUIProvider_ResourceSelectWithNamespace(t *testing.T) {
 	mockClient := &MockKubeLister{}
 	mockClient.On("GetServices", mock.Anything, "default").Return([]string{"service1", "service2"}, nil)
-	
+
 	service := NewAutoCompleteService(mockClient)
 	provider := NewTUIProvider(service)
 
@@ -188,7 +188,7 @@ func TestTUIProvider_ResourceSelectWithNamespace(t *testing.T) {
 func TestTUIProvider_ResourceSelectWithError(t *testing.T) {
 	mockClient := &MockKubeLister{}
 	mockClient.On("GetServices", mock.Anything, "default").Return(nil, assert.AnError)
-	
+
 	service := NewAutoCompleteService(mockClient)
 	provider := NewTUIProvider(service)
 
@@ -201,7 +201,7 @@ func TestTUIProvider_ResourceSelectWithError(t *testing.T) {
 func TestTUIProvider_NamespaceSelect(t *testing.T) {
 	mockClient := &MockKubeLister{}
 	mockClient.On("GetNamespaces", mock.Anything).Return([]string{"default", "kube-system", "test"}, nil)
-	
+
 	service := NewAutoCompleteService(mockClient)
 	provider := NewTUIProvider(service)
 
@@ -214,7 +214,7 @@ func TestTUIProvider_NamespaceSelect(t *testing.T) {
 func TestTUIProvider_NamespaceSelectWithError(t *testing.T) {
 	mockClient := &MockKubeLister{}
 	mockClient.On("GetNamespaces", mock.Anything).Return(nil, assert.AnError)
-	
+
 	service := NewAutoCompleteService(mockClient)
 	provider := NewTUIProvider(service)
 
@@ -236,7 +236,7 @@ func TestTUIProvider_WithNilAutoComplete(t *testing.T) {
 func TestTUIProvider_WithErrorFromAutoComplete(t *testing.T) {
 	mockClient := &MockKubeLister{}
 	mockClient.On("GetNamespaces", mock.Anything).Return(nil, assert.AnError)
-	
+
 	service := NewAutoCompleteService(mockClient)
 	provider := NewTUIProvider(service)
 
@@ -253,11 +253,11 @@ func TestTUIProvider_CreateCustomInput(t *testing.T) {
 	provider := NewTUIProvider(service)
 
 	value := "test-value"
-	
+
 	suggestionsFunc := func() []string {
 		return []string{"suggestion1", "suggestion2"}
 	}
-	
+
 	input := provider.createCustomInput("Test Title", "Test Description", "Test Placeholder", &value, suggestionsFunc)
 
 	assert.NotNil(t, input)
@@ -279,7 +279,7 @@ func TestTUIProvider_Consistency(t *testing.T) {
 	provider := NewTUIProvider(service)
 
 	value := "test"
-	
+
 	// Create multiple inputs with same parameters and verify consistency
 	for i := 0; i < 3; i++ {
 		input := provider.TextInput("Title", "Desc", "Placeholder", &value)
@@ -290,7 +290,7 @@ func TestTUIProvider_Consistency(t *testing.T) {
 func TestTUIProvider_ErrorHandling(t *testing.T) {
 	mockClient := &MockKubeLister{}
 	mockClient.On("GetNamespaces", mock.Anything).Return(nil, assert.AnError)
-	
+
 	service := NewAutoCompleteService(mockClient)
 	provider := NewTUIProvider(service)
 
@@ -321,8 +321,8 @@ func TestGetResourceTypeFromString_AllCases(t *testing.T) {
 		{"clustersecretstore", "clustersecretstore", ResourceTypeClusterSecretStore},
 		{"secretstore", "secretstore", ResourceTypeSecretStore},
 		{"unknown", "unknown-resource", ResourceTypeNamespace}, // default case
-		{"empty", "", ResourceTypeNamespace},        // empty string defaults to namespace
-		{"nil-like", "nil", ResourceTypeNamespace},  // unrecognized defaults to namespace
+		{"empty", "", ResourceTypeNamespace},                   // empty string defaults to namespace
+		{"nil-like", "nil", ResourceTypeNamespace},             // unrecognized defaults to namespace
 	}
 
 	for _, tc := range testCases {

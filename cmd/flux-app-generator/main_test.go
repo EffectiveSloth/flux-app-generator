@@ -381,7 +381,7 @@ func TestFileSystemOperations(t *testing.T) {
 
 	// Test creating a file in the temp directory
 	testFile := filepath.Join(tempDir, "test.txt")
-	err := os.WriteFile(testFile, []byte("test content"), 0600)
+	err := os.WriteFile(testFile, []byte("test content"), 0o600)
 	assert.NoError(t, err)
 	assert.FileExists(t, testFile)
 }

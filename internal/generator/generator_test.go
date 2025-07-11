@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/EffectiveSloth/flux-app-generator/internal/models"
 	"github.com/EffectiveSloth/flux-app-generator/internal/plugins"
-	"github.com/EffectiveSloth/flux-app-generator/internal/types"
 )
 
 func TestGenerateFromTemplateString(t *testing.T) {
@@ -105,7 +105,7 @@ configMapGenerator:
 }
 
 func TestGenerateHelmRepository(t *testing.T) {
-	config := &types.AppConfig{
+	config := &models.AppConfig{
 		HelmRepoName: "test-repo",
 		Namespace:    "default",
 		Interval:     "5m",
@@ -114,13 +114,13 @@ func TestGenerateHelmRepository(t *testing.T) {
 
 	tempDir := t.TempDir()
 	appDir := filepath.Join(tempDir, "test-app")
-	if err := os.MkdirAll(appDir, 0755); err != nil {
+	if err := os.MkdirAll(appDir, 0o755); err != nil {
 		t.Fatalf("failed to create test directory: %v", err)
 	}
 
 	// Create the dependencies subdirectory
 	depsDir := filepath.Join(appDir, "dependencies")
-	if err := os.MkdirAll(depsDir, 0755); err != nil {
+	if err := os.MkdirAll(depsDir, 0o755); err != nil {
 		t.Fatalf("failed to create dependencies directory: %v", err)
 	}
 
@@ -137,7 +137,7 @@ func TestGenerateHelmRepository(t *testing.T) {
 }
 
 func TestGenerateHelmRelease(t *testing.T) {
-	config := &types.AppConfig{
+	config := &models.AppConfig{
 		AppName:      "test-app",
 		Namespace:    "default",
 		HelmRepoName: "test-repo",
@@ -148,13 +148,13 @@ func TestGenerateHelmRelease(t *testing.T) {
 
 	tempDir := t.TempDir()
 	appDir := filepath.Join(tempDir, "test-app")
-	if err := os.MkdirAll(appDir, 0755); err != nil {
+	if err := os.MkdirAll(appDir, 0o755); err != nil {
 		t.Fatalf("failed to create test directory: %v", err)
 	}
 
 	// Create the release subdirectory
 	releaseDir := filepath.Join(appDir, "release")
-	if err := os.MkdirAll(releaseDir, 0755); err != nil {
+	if err := os.MkdirAll(releaseDir, 0o755); err != nil {
 		t.Fatalf("failed to create release directory: %v", err)
 	}
 
@@ -171,7 +171,7 @@ func TestGenerateHelmRelease(t *testing.T) {
 }
 
 func TestGenerateHelmValues(t *testing.T) {
-	config := &types.AppConfig{
+	config := &models.AppConfig{
 		AppName: "test-app",
 		Values: map[string]interface{}{
 			"replicaCount": 3,
@@ -184,13 +184,13 @@ func TestGenerateHelmValues(t *testing.T) {
 
 	tempDir := t.TempDir()
 	appDir := filepath.Join(tempDir, "test-app")
-	if err := os.MkdirAll(appDir, 0755); err != nil {
+	if err := os.MkdirAll(appDir, 0o755); err != nil {
 		t.Fatalf("failed to create test directory: %v", err)
 	}
 
 	// Create the release subdirectory
 	releaseDir := filepath.Join(appDir, "release")
-	if err := os.MkdirAll(releaseDir, 0755); err != nil {
+	if err := os.MkdirAll(releaseDir, 0o755); err != nil {
 		t.Fatalf("failed to create release directory: %v", err)
 	}
 
@@ -207,13 +207,13 @@ func TestGenerateHelmValues(t *testing.T) {
 }
 
 func TestGenerateKustomization(t *testing.T) {
-	config := &types.AppConfig{
+	config := &models.AppConfig{
 		AppName: "test-app",
 	}
 
 	tempDir := t.TempDir()
 	appDir := filepath.Join(tempDir, "test-app")
-	if err := os.MkdirAll(appDir, 0755); err != nil {
+	if err := os.MkdirAll(appDir, 0o755); err != nil {
 		t.Fatalf("failed to create test directory: %v", err)
 	}
 
@@ -230,7 +230,7 @@ func TestGenerateKustomization(t *testing.T) {
 }
 
 func TestGenerateFluxStructure(t *testing.T) {
-	config := &types.AppConfig{
+	config := &models.AppConfig{
 		AppName:      "test-app",
 		Namespace:    "default",
 		HelmRepoName: "test-repo",
@@ -280,7 +280,7 @@ func TestGenerateFluxStructure(t *testing.T) {
 }
 
 func TestGenerateFluxStructure_DirectoryCreationError(t *testing.T) {
-	config := &types.AppConfig{
+	config := &models.AppConfig{
 		AppName: "", // Empty name should cause directory creation to fail
 	}
 
@@ -310,13 +310,13 @@ func TestGeneratePluginFiles(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		config        *types.AppConfig
+		config        *models.AppConfig
 		expectError   bool
 		expectedFiles []string
 	}{
 		{
 			name: "no plugins",
-			config: &types.AppConfig{
+			config: &models.AppConfig{
 				AppName:   "test-app",
 				Namespace: "default",
 				Plugins:   []plugins.PluginConfig{},
@@ -326,7 +326,7 @@ func TestGeneratePluginFiles(t *testing.T) {
 		},
 		{
 			name: "imageupdate plugin",
-			config: &types.AppConfig{
+			config: &models.AppConfig{
 				AppName:   "test-app",
 				Namespace: "default",
 				Plugins: []plugins.PluginConfig{
@@ -358,7 +358,7 @@ func TestGeneratePluginFiles(t *testing.T) {
 		},
 		{
 			name: "externalsecret plugin",
-			config: &types.AppConfig{
+			config: &models.AppConfig{
 				AppName:   "test-app",
 				Namespace: "default",
 				Plugins: []plugins.PluginConfig{
@@ -380,7 +380,7 @@ func TestGeneratePluginFiles(t *testing.T) {
 		},
 		{
 			name: "invalid plugin",
-			config: &types.AppConfig{
+			config: &models.AppConfig{
 				AppName:   "test-app",
 				Namespace: "default",
 				Plugins: []plugins.PluginConfig{
@@ -395,7 +395,7 @@ func TestGeneratePluginFiles(t *testing.T) {
 		},
 		{
 			name: "plugin validation error",
-			config: &types.AppConfig{
+			config: &models.AppConfig{
 				AppName:   "test-app",
 				Namespace: "default",
 				Plugins: []plugins.PluginConfig{
@@ -415,7 +415,7 @@ func TestGeneratePluginFiles(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			appDir := filepath.Join(tempDir, tt.config.AppName+"-"+tt.name)
-			if err := os.MkdirAll(appDir, 0755); err != nil {
+			if err := os.MkdirAll(appDir, 0o755); err != nil {
 				t.Fatalf("failed to create app directory: %v", err)
 			}
 
@@ -462,7 +462,7 @@ func TestGeneratePluginFiles(t *testing.T) {
 
 // Test GenerateFluxStructure with imageupdate plugin.
 func TestGenerateFluxStructure_WithImageUpdatePlugin(t *testing.T) {
-	config := &types.AppConfig{
+	config := &models.AppConfig{
 		AppName:      "test-app",
 		Namespace:    "default",
 		HelmRepoName: "test-repo",
@@ -573,7 +573,7 @@ func TestGeneratePluginFiles_MultiplePlugins(t *testing.T) {
 		}
 	}()
 
-	config := &types.AppConfig{
+	config := &models.AppConfig{
 		AppName:   "test-app",
 		Namespace: "default",
 		Plugins: []plugins.PluginConfig{
@@ -609,7 +609,7 @@ func TestGeneratePluginFiles_MultiplePlugins(t *testing.T) {
 	}
 
 	appDir := filepath.Join(tempDir, config.AppName)
-	if err := os.MkdirAll(appDir, 0755); err != nil {
+	if err := os.MkdirAll(appDir, 0o755); err != nil {
 		t.Fatalf("failed to create app directory: %v", err)
 	}
 
