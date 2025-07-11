@@ -5,28 +5,15 @@ run:
   go: "1.24"
 
 linters:
-  default: standard
   enable:
     - errcheck
     - staticcheck
     - revive
 
-linters-settings:
-  revive:
-    rules:
-      - name: var-naming
-        disabled: true
-
 formatters:
   enable:
     - gofumpt
-    - goimports
 
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-use-default: false
-
-output:
-  format: colored-line-number
-  print-issued-lines: true
