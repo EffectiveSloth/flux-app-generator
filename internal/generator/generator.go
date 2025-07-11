@@ -1,3 +1,4 @@
+// Package generator provides functionality for generating Flux application directory structures and configuration files.
 package generator
 
 import (
@@ -7,8 +8,9 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/EffectiveSloth/flux-app-generator/internal/kubernetes"
+	"github.com/EffectiveSloth/flux-app-generator/internal/models"
 	"github.com/EffectiveSloth/flux-app-generator/internal/plugins"
-	"github.com/EffectiveSloth/flux-app-generator/internal/types"
 )
 
 // Import embedded templates from main package.
@@ -46,7 +48,7 @@ func generateFromTemplateString(templateStr, outputPath string, data interface{}
 	return err
 }
 
-func generateHelmRepository(config *types.AppConfig, appDir string) error {
+func generateHelmRepository(config *models.AppConfig, appDir string) error {
 	return generateFromTemplateString(
 		HelmRepositoryTemplate,
 		filepath.Join(appDir, "dependencies", "helm-repository.yaml"),
@@ -54,7 +56,7 @@ func generateHelmRepository(config *types.AppConfig, appDir string) error {
 	)
 }
 
-func generateHelmRelease(config *types.AppConfig, appDir string) error {
+func generateHelmRelease(config *models.AppConfig, appDir string) error {
 	return generateFromTemplateString(
 		HelmReleaseTemplate,
 		filepath.Join(appDir, "release", "helm-release.yaml"),
@@ -62,7 +64,7 @@ func generateHelmRelease(config *types.AppConfig, appDir string) error {
 	)
 }
 
-func generateHelmValues(config *types.AppConfig, appDir string) error {
+func generateHelmValues(config *models.AppConfig, appDir string) error {
 	outputPath := filepath.Join(appDir, "release", "helm-values.yaml")
 	if raw, ok := config.Values["__raw_yaml__"]; ok {
 		// Write raw YAML directly, ensuring it ends with a newline
@@ -70,13 +72,13 @@ func generateHelmValues(config *types.AppConfig, appDir string) error {
 		if content != "" && content[len(content)-1] != '\n' {
 			content += "\n"
 		}
-		return os.WriteFile(outputPath, []byte(content), 0600)
+		return os.WriteFile(outputPath, []byte(content), 0o600)
 	}
 	// Create an empty file with just a newline
-	return os.WriteFile(outputPath, []byte("\n"), 0600)
+	return os.WriteFile(outputPath, []byte("\n"), 0o600)
 }
 
-func generateKustomization(config *types.AppConfig, appDir string) error {
+func generateKustomization(config *models.AppConfig, appDir string) error {
 	return generateFromTemplateString(
 		KustomizationTemplate,
 		filepath.Join(appDir, "kustomization.yaml"),
@@ -85,17 +87,17 @@ func generateKustomization(config *types.AppConfig, appDir string) error {
 }
 
 // GenerateFluxStructure is the main entrypoint for generating the Flux structure.
-func GenerateFluxStructure(config *types.AppConfig) error {
+func GenerateFluxStructure(config *models.AppConfig) error {
 	// Create app directory
 	appDir := config.AppName
-	if err := os.MkdirAll(appDir, 0755); err != nil {
+	if err := os.MkdirAll(appDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create app directory %s: %w", appDir, err)
 	}
 
 	// Create subdirectories
 	dirs := []string{filepath.Join(appDir, "dependencies"), filepath.Join(appDir, "release")}
 	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
 	}
@@ -137,17 +139,17 @@ func GenerateFluxStructure(config *types.AppConfig) error {
 }
 
 // generatePluginFiles generates files for all configured plugins and returns their paths.
-func generatePluginFiles(config *types.AppConfig, appDir string) ([]string, error) {
+func generatePluginFiles(config *models.AppConfig, appDir string) ([]string, error) {
 	if len(config.Plugins) == 0 {
 		return nil, nil // No plugins to generate
 	}
 
 	// Create plugin registry to access plugin definitions
-	registry := plugins.NewRegistry()
+	pluginRegistry := plugins.NewRegistry(&kubernetes.MockKubeLister{})
 	var pluginFiles []string
 
 	for _, pluginConfig := range config.Plugins {
-		plugin, exists := registry.Get(pluginConfig.PluginName)
+		plugin, exists := pluginRegistry.Get(pluginConfig.PluginName)
 		if !exists {
 			return nil, fmt.Errorf("plugin '%s' not found in registry", pluginConfig.PluginName)
 		}

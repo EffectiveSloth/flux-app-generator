@@ -87,7 +87,6 @@ func TestDownloadAndExtractValuesYAML_ContentValidation(t *testing.T) {
 		"vantage-kubernetes-agent",
 		"1.1.2",
 	)
-
 	if err != nil {
 		t.Skipf("Skipping content validation test due to network error: %v", err)
 		return

@@ -12,9 +12,13 @@ import (
 type VariableType string
 
 const (
-	VariableTypeText     VariableType = "text"
-	VariableTypeBool     VariableType = "bool"
-	VariableTypeSelect   VariableType = "select"
+	// VariableTypeText represents a text input variable.
+	VariableTypeText VariableType = "text"
+	// VariableTypeBool represents a boolean input variable.
+	VariableTypeBool VariableType = "bool"
+	// VariableTypeSelect represents a select dropdown input variable.
+	VariableTypeSelect VariableType = "select"
+	// VariableTypeCheckbox represents a checkbox input variable.
 	VariableTypeCheckbox VariableType = "checkbox"
 )
 
@@ -198,7 +202,7 @@ func (p *BasePlugin) GenerateFile(values map[string]interface{}, appDir, namespa
 	outputPath := filepath.Join(appDir, pathBuf.String())
 
 	// Ensure output directory exists
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
 		return &FileError{
 			Plugin:    p.name,
 			Operation: "create_directory",

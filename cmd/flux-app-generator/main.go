@@ -1,18 +1,23 @@
+// Package main implements a command-line tool for generating Flux application configurations with Helm repositories and releases.
 package main
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/EffectiveSloth/flux-app-generator/internal/generator"
 	"github.com/EffectiveSloth/flux-app-generator/internal/helm"
+	"github.com/EffectiveSloth/flux-app-generator/internal/kubernetes"
+	"github.com/EffectiveSloth/flux-app-generator/internal/models"
 	"github.com/EffectiveSloth/flux-app-generator/internal/plugins"
-	"github.com/EffectiveSloth/flux-app-generator/internal/types"
 )
 
 //go:embed templates
@@ -39,8 +44,14 @@ var (
 	valuesPrefill   string
 	versionFetcher  = helm.NewVersionFetcher()
 
+	// Kubernetes auto-completion.
+	k8sClient       *kubernetes.Client
+	k8sAutoComplete *kubernetes.AutoCompleteService
+	k8sTUIProvider  *kubernetes.TUIProvider
+	k8sConnected    bool
+
 	// Plugin-related variables.
-	pluginRegistry  = plugins.NewRegistry()
+	pluginRegistry  *plugins.Registry
 	pluginInstances []plugins.PluginConfig // List of configured plugin instances.
 )
 
@@ -50,10 +61,16 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Show Kubernetes connection splash screen
+	showKubernetesSplashScreen()
+
+	// Initialize plugin registry with Kubernetes client (after splash screen)
+	pluginRegistry = plugins.NewRegistry(k8sClient)
+
 	// Set default values
 	namespace = ""
 	interval = "5m"
-	valuesPrefill = "empty"
+	valuesPrefill = "default"
 
 	// Step 1: Basic Application Info
 	appInfoForm := huh.NewForm(
@@ -70,17 +87,28 @@ func main() {
 					return nil
 				}),
 
-			huh.NewInput().
-				Title("Namespace").
-				Description("Kubernetes namespace for the application").
-				Placeholder("default").
-				Value(&namespace).
-				Validate(func(s string) error {
-					if s == "" {
-						return fmt.Errorf("namespace is required")
-					}
-					return nil
-				}),
+			func() huh.Field {
+				if k8sConnected && k8sTUIProvider != nil {
+					return k8sTUIProvider.NamespaceInput(
+						"Namespace",
+						"Kubernetes namespace for the application",
+						"default",
+						&namespace,
+					)
+				}
+				// Fallback to regular input if Kubernetes client is not available
+				return huh.NewInput().
+					Title("Namespace").
+					Description("Kubernetes namespace for the application").
+					Placeholder("default").
+					Value(&namespace).
+					Validate(func(s string) error {
+						if s == "" {
+							return fmt.Errorf("namespace is required")
+						}
+						return nil
+					})
+			}(),
 
 			huh.NewInput().
 				Title("Helm Repository Name").
@@ -140,37 +168,44 @@ func main() {
 					return options
 				}, &helmRepoURL).
 				Value(&selectedChart),
-
-			huh.NewSelect[string]().
-				Title("Select Version").
-				Description("Choose a version of the selected chart").
-				OptionsFunc(func() []huh.Option[string] {
-					if selectedChart == "" || helmRepoURL == "" {
-						return []huh.Option[string]{huh.NewOption("Please select a chart first", "")}
-					}
-
-					// Fetch versions for the selected chart
-					versions, err := versionFetcher.FetchChartVersions(helmRepoURL, selectedChart)
-					if err != nil {
-						return []huh.Option[string]{huh.NewOption(fmt.Sprintf("Error: %s", err.Error()), "")}
-					}
-
-					options := make([]huh.Option[string], len(versions))
-					for i, version := range versions {
-						displayName := fmt.Sprintf("%s (App: %s)", version.ChartVersion, version.AppVersion)
-						if version.Description != "" {
-							displayName = fmt.Sprintf("%s - %s", displayName, version.Description)
-						}
-						options[i] = huh.NewOption(displayName, version.ChartVersion)
-					}
-					return options
-				}, &selectedChart).
-				Value(&selectedVersion),
 		).Title("📦 Chart Selection"),
 	).WithTheme(huh.ThemeCharm())
 
 	if err := chartForm.Run(); err != nil {
 		log.Fatal(err)
+	}
+
+	// Step 2.5: Version Selection (only if chart is selected)
+	if selectedChart != "" {
+		versionForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("Select Version").
+					Description("Choose a version of the selected chart").
+					OptionsFunc(func() []huh.Option[string] {
+						// Fetch versions for the selected chart
+						versions, err := versionFetcher.FetchChartVersions(helmRepoURL, selectedChart)
+						if err != nil {
+							return []huh.Option[string]{huh.NewOption(fmt.Sprintf("Error: %s", err.Error()), "")}
+						}
+
+						options := make([]huh.Option[string], len(versions))
+						for i, version := range versions {
+							displayName := fmt.Sprintf("%s (App: %s)", version.ChartVersion, version.AppVersion)
+							if version.Description != "" {
+								displayName = fmt.Sprintf("%s - %s", displayName, version.Description)
+							}
+							options[i] = huh.NewOption(displayName, version.ChartVersion)
+						}
+						return options
+					}, &selectedChart).
+					Value(&selectedVersion),
+			).Title("📦 Version Selection"),
+		).WithTheme(huh.ThemeCharm())
+
+		if err := versionForm.Run(); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	// Step 3: Final Configuration
@@ -215,7 +250,7 @@ func main() {
 	}
 
 	// Create configuration
-	config := &types.AppConfig{
+	config := &models.AppConfig{
 		AppName:      appName,
 		Namespace:    namespace,
 		HelmRepoName: helmRepoName,
@@ -269,6 +304,79 @@ func main() {
 	fmt.Printf("   4. Apply to your cluster: kubectl apply -k %s/\n", appName)
 }
 
+// showKubernetesSplashScreen displays a styled splash and tests Kubernetes connection.
+func showKubernetesSplashScreen() {
+	bg := lipgloss.Color("#f0f4ff")         // very light blue
+	titleColor := lipgloss.Color("#2563eb") // deep blue
+	accent := lipgloss.Color("#ff69b4")     // medium pink
+	msgText := lipgloss.Color("#22223b")    // almost black
+	border := accent
+
+	titleStyle := lipgloss.NewStyle().
+		Foreground(titleColor).
+		Background(bg).
+		Bold(true).
+		Padding(1, 6, 1, 6).
+		Margin(1, 2, 1, 2).
+		Border(lipgloss.RoundedBorder(), true).
+		BorderForeground(border)
+
+	msgStyle := lipgloss.NewStyle().
+		Foreground(msgText).
+		Background(lipgloss.Color("#fff")).
+		Padding(0, 4, 0, 4).
+		Margin(0, 2, 0, 2)
+
+	title := titleStyle.Render("🚀 Flux App Generator")
+	msg := msgStyle.Render("🔍 Testing Kubernetes Connection...")
+
+	fmt.Println(title)
+	fmt.Println(msg)
+
+	startTime := time.Now()
+
+	// Test Kubernetes connection
+	var err error
+	k8sClient, err = kubernetes.NewClient()
+	if err != nil {
+		k8sConnected = false
+		fail := msgStyle.Foreground(accent).Background(lipgloss.Color("#fff0f6")).Render("❌ Could not initialize Kubernetes client. Auto-completion will be disabled.")
+		fmt.Println(fail)
+		time.Sleep(2 * time.Second)
+		clearTerminal()
+		return
+	}
+
+	ctx := context.Background()
+	if err := k8sClient.TestConnection(ctx); err != nil {
+		k8sConnected = false
+		fail := msgStyle.Foreground(accent).Background(lipgloss.Color("#fff0f6")).Render("❌ Could not connect to Kubernetes cluster. Auto-completion will be disabled.")
+		fmt.Println(fail)
+		time.Sleep(2 * time.Second)
+		clearTerminal()
+		return
+	}
+
+	// Initialize auto-completion services
+	k8sAutoComplete = kubernetes.NewAutoCompleteService(k8sClient)
+	k8sTUIProvider = kubernetes.NewTUIProvider(k8sAutoComplete)
+	k8sConnected = true
+
+	// Success state
+	success := msgStyle.Foreground(lipgloss.Color("#388e3c")).Background(lipgloss.Color("#e8f5e9")).Render("✅ Kubernetes Connection Successful! Auto-completion enabled.")
+	fmt.Println(success)
+
+	elapsed := time.Since(startTime)
+	if elapsed < 2*time.Second {
+		time.Sleep(2*time.Second - elapsed)
+	}
+	clearTerminal()
+}
+
+func clearTerminal() {
+	fmt.Print("\033[H\033[2J")
+}
+
 // loadTemplates loads all template files and sets them in the generator package.
 func loadTemplates() error {
 	templates := map[string]*string{
@@ -290,6 +398,10 @@ func loadTemplates() error {
 
 // runInteractivePluginMenu provides an interactive menu for managing plugin instances.
 func runInteractivePluginMenu() error {
+	if pluginRegistry == nil {
+		return fmt.Errorf("plugin registry not initialized")
+	}
+
 	for {
 		// Build menu options
 		var options []huh.Option[string]
@@ -372,9 +484,30 @@ func getPluginInstanceDescription(instance plugins.PluginConfig) string {
 
 // configurePluginInstance handles configuration of a single plugin instance.
 func configurePluginInstance(pluginName string) error {
+	if pluginRegistry == nil {
+		return fmt.Errorf("plugin registry not initialized")
+	}
+
 	plugin, exists := pluginRegistry.Get(pluginName)
 	if !exists {
 		return fmt.Errorf("plugin '%s' not found", pluginName)
+	}
+
+	// Special handling for ExternalSecret plugin with auto-completion
+	if pluginName == "externalsecret" {
+		if externalSecretPlugin, ok := plugin.(*plugins.ExternalSecretPlugin); ok {
+			pluginValues, err := externalSecretPlugin.ConfigureWithAutoComplete(namespace)
+			if err != nil {
+				return fmt.Errorf("error configuring ExternalSecret plugin: %w", err)
+			}
+
+			// Add the configured instance
+			pluginInstances = append(pluginInstances, plugins.PluginConfig{
+				PluginName: pluginName,
+				Values:     pluginValues,
+			})
+			return nil
+		}
 	}
 
 	variables := plugin.Variables()

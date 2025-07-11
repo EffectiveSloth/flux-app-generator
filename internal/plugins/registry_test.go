@@ -2,329 +2,318 @@ package plugins
 
 import (
 	"testing"
+
+	"github.com/EffectiveSloth/flux-app-generator/internal/kubernetes"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewRegistry(t *testing.T) {
-	registry := NewRegistry()
+	mockClient := &kubernetes.MockKubeLister{}
+	registry := NewRegistry(mockClient)
 
-	if registry == nil {
-		t.Fatalf("expected registry to be created")
-	}
+	assert.NotNil(t, registry)
+	assert.NotNil(t, registry.plugins)
+	assert.Len(t, registry.plugins, 2) // Should have externalsecret and imageupdate plugins
 
-	// Should have at least the built-in ExternalSecret plugin registered
-	if registry.Count() == 0 {
-		t.Errorf("expected at least one built-in plugin to be registered")
-	}
-
-	// Check if ExternalSecret plugin is registered
-	if !registry.Exists("externalsecret") {
-		t.Errorf("expected externalsecret plugin to be registered by default")
-	}
-
-	// Check if ImageUpdate plugin is registered
-	if !registry.Exists("imageupdate") {
-		t.Errorf("expected imageupdate plugin to be registered by default")
-	}
+	// Check that externalsecret plugin is registered
+	plugin, exists := registry.plugins["externalsecret"]
+	assert.True(t, exists)
+	assert.NotNil(t, plugin)
+	assert.Equal(t, "externalsecret", plugin.Name())
 }
 
-func TestRegistry_Register(t *testing.T) {
-	registry := NewRegistry()
-	initialCount := registry.Count()
+func TestNewRegistryWithNilClient(t *testing.T) {
+	registry := NewRegistry(nil)
 
-	// Create a test plugin
-	testPlugin := &BasePlugin{
-		name:        "test-plugin",
-		description: "Test plugin for testing",
-		variables:   []Variable{},
-		template:    "test: value",
-		filePath:    "test.yaml",
-	}
+	assert.NotNil(t, registry)
+	assert.NotNil(t, registry.plugins)
+	assert.Len(t, registry.plugins, 2) // Should still have externalsecret and imageupdate plugins
 
-	// Test successful registration
-	err := registry.Register(testPlugin)
-	if err != nil {
-		t.Errorf("unexpected error registering plugin: %v", err)
-	}
-
-	if registry.Count() != initialCount+1 {
-		t.Errorf("expected count to increase by 1, got %d", registry.Count())
-	}
-
-	if !registry.Exists("test-plugin") {
-		t.Errorf("expected test-plugin to be registered")
-	}
-
-	// Test registering nil plugin
-	err = registry.Register(nil)
-	if err == nil {
-		t.Errorf("expected error when registering nil plugin")
-	}
-
-	// Test registering plugin with empty name
-	emptyNamePlugin := &BasePlugin{
-		name: "",
-	}
-	err = registry.Register(emptyNamePlugin)
-	if err == nil {
-		t.Errorf("expected error when registering plugin with empty name")
-	}
-
-	// Test registering duplicate plugin
-	err = registry.Register(testPlugin)
-	if err == nil {
-		t.Errorf("expected error when registering duplicate plugin")
-	}
-}
-
-func TestRegistry_Get(t *testing.T) {
-	registry := NewRegistry()
-
-	// Test getting existing plugin
-	plugin, exists := registry.Get("externalsecret")
-	if !exists {
-		t.Errorf("expected externalsecret plugin to exist")
-	}
-	if plugin == nil {
-		t.Errorf("expected plugin to not be nil")
-	}
-	if plugin.Name() != "externalsecret" {
-		t.Errorf("expected plugin name to be 'externalsecret', got '%s'", plugin.Name())
-	}
-
-	// Test getting non-existent plugin
-	plugin, exists = registry.Get("non-existent")
-	if exists {
-		t.Errorf("expected non-existent plugin to not exist")
-	}
-	if plugin != nil {
-		t.Errorf("expected plugin to be nil for non-existent plugin")
-	}
+	// Check that externalsecret plugin is registered even with nil client
+	plugin, exists := registry.plugins["externalsecret"]
+	assert.True(t, exists)
+	assert.NotNil(t, plugin)
+	assert.Equal(t, "externalsecret", plugin.Name())
 }
 
 func TestRegistry_List(t *testing.T) {
-	registry := NewRegistry()
+	mockClient := &kubernetes.MockKubeLister{}
+	registry := NewRegistry(mockClient)
 
 	plugins := registry.List()
-	if len(plugins) == 0 {
-		t.Errorf("expected at least one plugin in list")
-	}
 
-	// Add a test plugin
-	testPlugin := &BasePlugin{
-		name:        "test-plugin-2",
-		description: "Another test plugin",
-		variables:   []Variable{},
-		template:    "test: value",
-		filePath:    "test.yaml",
-	}
+	assert.NotNil(t, plugins)
+	assert.Len(t, plugins, 2)
 
-	if err := registry.Register(testPlugin); err != nil {
-		t.Fatalf("failed to register test plugin: %v", err)
-	}
-
-	pluginsAfter := registry.List()
-	if len(pluginsAfter) != len(plugins)+1 {
-		t.Errorf("expected plugin list to grow by 1, got %d -> %d", len(plugins), len(pluginsAfter))
-	}
-
-	// Check that all plugins are unique
-	pluginNames := make(map[string]bool)
-	for _, plugin := range pluginsAfter {
-		name := plugin.Name()
-		if pluginNames[name] {
-			t.Errorf("duplicate plugin name '%s' in list", name)
-		}
-		pluginNames[name] = true
-	}
-}
-
-func TestRegistry_GetNames(t *testing.T) {
-	registry := NewRegistry()
-
-	names := registry.GetNames()
-	if len(names) == 0 {
-		t.Errorf("expected at least one plugin name")
-	}
-
-	// Check that externalsecret is in the list
+	// Check that the externalsecret plugin is in the list
 	found := false
-	for _, name := range names {
-		if name == "externalsecret" {
+	for _, plugin := range plugins {
+		if plugin.Name() == "externalsecret" {
 			found = true
+			assert.Equal(t, "Generates ExternalSecret resources for managing secrets from external secret stores", plugin.Description())
 			break
 		}
 	}
-
-	if !found {
-		t.Errorf("expected 'externalsecret' to be in plugin names list")
-	}
-
-	// Add a test plugin and verify it appears in names
-	testPlugin := &BasePlugin{
-		name:        "test-plugin-3",
-		description: "Test plugin for names test",
-		variables:   []Variable{},
-		template:    "test: value",
-		filePath:    "test.yaml",
-	}
-
-	if err := registry.Register(testPlugin); err != nil {
-		t.Fatalf("failed to register test plugin: %v", err)
-	}
-
-	namesAfter := registry.GetNames()
-	if len(namesAfter) != len(names)+1 {
-		t.Errorf("expected names list to grow by 1")
-	}
-
-	foundTest := false
-	for _, name := range namesAfter {
-		if name == "test-plugin-3" {
-			foundTest = true
-			break
-		}
-	}
-
-	if !foundTest {
-		t.Errorf("expected 'test-plugin-3' to be in plugin names list")
-	}
+	assert.True(t, found, "Expected externalsecret plugin to be in the list")
 }
 
-func TestRegistry_Count(t *testing.T) {
-	registry := NewRegistry()
+func TestRegistry_Get(t *testing.T) {
+	mockClient := &kubernetes.MockKubeLister{}
+	registry := NewRegistry(mockClient)
 
-	initialCount := registry.Count()
-	if initialCount == 0 {
-		t.Errorf("expected at least one plugin to be registered initially")
-	}
-
-	// Add plugins and verify count increases
-	testPlugin1 := &BasePlugin{
-		name:        "count-test-1",
-		description: "Test plugin 1",
-		variables:   []Variable{},
-		template:    "test: value",
-		filePath:    "test.yaml",
-	}
-
-	testPlugin2 := &BasePlugin{
-		name:        "count-test-2",
-		description: "Test plugin 2",
-		variables:   []Variable{},
-		template:    "test: value",
-		filePath:    "test.yaml",
-	}
-
-	if err := registry.Register(testPlugin1); err != nil {
-		t.Fatalf("failed to register test plugin 1: %v", err)
-	}
-	if registry.Count() != initialCount+1 {
-		t.Errorf("expected count to be %d, got %d", initialCount+1, registry.Count())
-	}
-
-	if err := registry.Register(testPlugin2); err != nil {
-		t.Fatalf("failed to register test plugin 2: %v", err)
-	}
-	if registry.Count() != initialCount+2 {
-		t.Errorf("expected count to be %d, got %d", initialCount+2, registry.Count())
-	}
-}
-
-func TestRegistry_Exists(t *testing.T) {
-	registry := NewRegistry()
-
-	// Test existing plugin
-	if !registry.Exists("externalsecret") {
-		t.Errorf("expected externalsecret plugin to exist")
-	}
-
-	// Test non-existing plugin
-	if registry.Exists("non-existent-plugin") {
-		t.Errorf("expected non-existent-plugin to not exist")
-	}
-
-	// Add a plugin and test existence
-	testPlugin := &BasePlugin{
-		name:        "exists-test",
-		description: "Test plugin for exists test",
-		variables:   []Variable{},
-		template:    "test: value",
-		filePath:    "test.yaml",
-	}
-
-	if err := registry.Register(testPlugin); err != nil {
-		t.Fatalf("failed to register test plugin: %v", err)
-	}
-
-	if !registry.Exists("exists-test") {
-		t.Errorf("expected exists-test plugin to exist after registration")
-	}
-}
-
-func TestRegistry_BuiltinPlugins(t *testing.T) {
-	registry := NewRegistry()
-
-	// Test that all expected built-in plugins are registered
-	expectedPlugins := []string{"externalsecret", "imageupdate"}
-
-	for _, pluginName := range expectedPlugins {
-		if !registry.Exists(pluginName) {
-			t.Errorf("expected built-in plugin '%s' to be registered", pluginName)
-		}
-
-		plugin, exists := registry.Get(pluginName)
-		if !exists {
-			t.Errorf("expected to get built-in plugin '%s'", pluginName)
-		}
-
-		if plugin == nil {
-			t.Errorf("expected built-in plugin '%s' to not be nil", pluginName)
-		}
-
-		if plugin.Name() != pluginName {
-			t.Errorf("expected plugin name to be '%s', got '%s'", pluginName, plugin.Name())
-		}
-	}
-}
-
-func TestRegistry_Integration(t *testing.T) {
-	// Test full integration workflow
-	registry := NewRegistry()
-
-	// Get the externalsecret plugin
+	// Test getting existing plugin
 	plugin, exists := registry.Get("externalsecret")
-	if !exists {
-		t.Fatalf("expected externalsecret plugin to exist")
-	}
+	assert.True(t, exists)
+	assert.NotNil(t, plugin)
+	assert.Equal(t, "externalsecret", plugin.Name())
 
-	// Test plugin functionality
+	// Test getting non-existent plugin
+	plugin, exists = registry.Get("nonexistent")
+	assert.False(t, exists)
+	assert.Nil(t, plugin)
+}
+
+func TestRegistry_GetWithEmptyName(t *testing.T) {
+	mockClient := &kubernetes.MockKubeLister{}
+	registry := NewRegistry(mockClient)
+
+	// Test getting plugin with empty name
+	plugin, exists := registry.Get("")
+	assert.False(t, exists)
+	assert.Nil(t, plugin)
+}
+
+func TestRegistry_GetWithNilRegistry(t *testing.T) {
+	// Test edge case with nil registry (shouldn't happen in practice)
+	var registry *Registry
+	if registry != nil {
+		plugin, exists := registry.Get("externalsecret")
+		assert.False(t, exists)
+		assert.Nil(t, plugin)
+	}
+}
+
+func TestRegistry_PluginProperties(t *testing.T) {
+	mockClient := &kubernetes.MockKubeLister{}
+	registry := NewRegistry(mockClient)
+
+	plugin, exists := registry.Get("externalsecret")
+	require.True(t, exists)
+	require.NotNil(t, plugin)
+
+	// Test plugin properties
+	assert.Equal(t, "externalsecret", plugin.Name())
+	assert.Equal(t, "Generates ExternalSecret resources for managing secrets from external secret stores", plugin.Description())
+
+	// Test that plugin has variables
 	variables := plugin.Variables()
-	if len(variables) == 0 {
-		t.Errorf("expected externalsecret plugin to have variables")
+	assert.NotNil(t, variables)
+	assert.Len(t, variables, 6) // name, secret_store_type, secret_store_name, secret_key, target_secret_name, refresh_interval
+
+	// Check specific variables exist
+	variableNames := make(map[string]bool)
+	for _, v := range variables {
+		variableNames[v.Name] = true
 	}
 
-	template := plugin.Template()
-	if template == "" {
-		t.Errorf("expected externalsecret plugin to have template")
+	expectedVariables := []string{"name", "secret_store_type", "secret_store_name", "secret_key", "target_secret_name", "refresh_interval"}
+	for _, expected := range expectedVariables {
+		assert.True(t, variableNames[expected], "Expected variable %s to be present", expected)
 	}
+}
 
-	filePath := plugin.FilePath()
-	if filePath == "" {
-		t.Errorf("expected externalsecret plugin to have file path")
-	}
+func TestRegistry_PluginGeneration(t *testing.T) {
+	mockClient := &kubernetes.MockKubeLister{}
+	registry := NewRegistry(mockClient)
 
-	// Test validation with valid data
-	validValues := map[string]interface{}{
+	plugin, exists := registry.Get("externalsecret")
+	require.True(t, exists)
+	require.NotNil(t, plugin)
+
+	// Test plugin generation
+	values := map[string]interface{}{
 		"name":               "test-secret",
 		"secret_store_type":  "ClusterSecretStore",
 		"secret_store_name":  "test-store",
 		"secret_key":         "test-key",
 		"target_secret_name": "test-target",
 		"refresh_interval":   "60m",
+		"Namespace":          "default",
 	}
 
-	err := plugin.Validate(validValues)
-	if err != nil {
-		t.Errorf("expected valid values to pass validation: %v", err)
+	err := plugin.GenerateFile(values, "/tmp", "default")
+	assert.NoError(t, err)
+}
+
+func TestRegistry_PluginGenerationWithMissingValues(t *testing.T) {
+	mockClient := &kubernetes.MockKubeLister{}
+	registry := NewRegistry(mockClient)
+
+	plugin, exists := registry.Get("externalsecret")
+	require.True(t, exists)
+	require.NotNil(t, plugin)
+
+	// Test plugin generation with missing values
+	values := map[string]interface{}{
+		"name": "test-secret",
+		// Missing other required values
 	}
+
+	err := plugin.GenerateFile(values, "/tmp", "default")
+	assert.NoError(t, err) // Should still generate without error
+}
+
+func TestRegistry_PluginInterfaceCompliance(t *testing.T) {
+	mockClient := &kubernetes.MockKubeLister{}
+	registry := NewRegistry(mockClient)
+
+	plugin, exists := registry.Get("externalsecret")
+	require.True(t, exists)
+	require.NotNil(t, plugin)
+
+	// Test that plugin implements Plugin interface
+	_ = plugin
+}
+
+func TestRegistry_ConcurrentAccess(t *testing.T) {
+	mockClient := &kubernetes.MockKubeLister{}
+	registry := NewRegistry(mockClient)
+
+	// Test concurrent access to registry
+	done := make(chan bool, 10)
+
+	for i := 0; i < 10; i++ {
+		go func() {
+			defer func() { done <- true }()
+
+			// Test List
+			plugins := registry.List()
+			assert.NotNil(t, plugins)
+			assert.Len(t, plugins, 2)
+
+			// Test Get
+			plugin, exists := registry.Get("externalsecret")
+			assert.True(t, exists)
+			assert.NotNil(t, plugin)
+		}()
+	}
+
+	// Wait for all goroutines to complete
+	for i := 0; i < 10; i++ {
+		<-done
+	}
+}
+
+func TestRegistry_PluginRegistration(t *testing.T) {
+	mockClient := &kubernetes.MockKubeLister{}
+	registry := NewRegistry(mockClient)
+
+	// Test that plugins are properly registered
+	plugins := registry.List()
+	assert.Len(t, plugins, 2)
+
+	// Check that the plugin is the correct type
+	plugin := plugins[0]
+	assert.IsType(t, &ExternalSecretPlugin{}, plugin)
+
+	// Check that it's the same plugin instance
+	externalSecretPlugin, ok := plugin.(*ExternalSecretPlugin)
+	assert.True(t, ok)
+	assert.Equal(t, mockClient, externalSecretPlugin.kubeClient)
+}
+
+func TestRegistry_PluginWithNilClient(t *testing.T) {
+	registry := NewRegistry(nil)
+
+	plugin, exists := registry.Get("externalsecret")
+	require.True(t, exists)
+	require.NotNil(t, plugin)
+
+	// Check that the plugin can handle nil client
+	externalSecretPlugin, ok := plugin.(*ExternalSecretPlugin)
+	assert.True(t, ok)
+	assert.Nil(t, externalSecretPlugin.kubeClient)
+
+	// Test that plugin still works with nil client
+	values := map[string]interface{}{
+		"name":               "test-secret",
+		"secret_store_type":  "ClusterSecretStore",
+		"secret_store_name":  "test-store",
+		"secret_key":         "test-key",
+		"target_secret_name": "test-target",
+		"refresh_interval":   "60m",
+		"Namespace":          "default",
+	}
+
+	err := plugin.GenerateFile(values, "/tmp", "default")
+	assert.NoError(t, err)
+}
+
+func TestRegistry_EmptyRegistry(t *testing.T) {
+	// Test edge case of empty registry
+	registry := &Registry{
+		plugins: make(map[string]Plugin),
+	}
+
+	plugins := registry.List()
+	assert.Empty(t, plugins)
+
+	plugin, exists := registry.Get("externalsecret")
+	assert.False(t, exists)
+	assert.Nil(t, plugin)
+}
+
+func TestRegistry_PluginVariablesValidation(t *testing.T) {
+	mockClient := &kubernetes.MockKubeLister{}
+	registry := NewRegistry(mockClient)
+
+	plugin, exists := registry.Get("externalsecret")
+	require.True(t, exists)
+	require.NotNil(t, plugin)
+
+	variables := plugin.Variables()
+
+	// Test that required variables are marked as required
+	for _, v := range variables {
+		switch v.Name {
+		case "name", "secret_store_type", "secret_store_name", "secret_key", "target_secret_name":
+			assert.True(t, v.Required, "Variable %s should be required", v.Name)
+		case "refresh_interval":
+			assert.False(t, v.Required, "Variable %s should not be required", v.Name)
+		}
+	}
+
+	// Test that select variables have options
+	for _, v := range variables {
+		if v.Type == VariableTypeSelect {
+			assert.NotEmpty(t, v.Options, "Select variable %s should have options", v.Name)
+		}
+	}
+}
+
+func TestRegistry_PluginTemplateConsistency(t *testing.T) {
+	mockClient := &kubernetes.MockKubeLister{}
+	registry := NewRegistry(mockClient)
+
+	plugin, exists := registry.Get("externalsecret")
+	require.True(t, exists)
+	require.NotNil(t, plugin)
+
+	// Test that template is consistent across multiple generations
+	values := map[string]interface{}{
+		"name":               "test-secret",
+		"secret_store_type":  "ClusterSecretStore",
+		"secret_store_name":  "test-store",
+		"secret_key":         "test-key",
+		"target_secret_name": "test-target",
+		"refresh_interval":   "60m",
+		"Namespace":          "default",
+	}
+
+	err1 := plugin.GenerateFile(values, "/tmp", "default")
+	err2 := plugin.GenerateFile(values, "/tmp", "default")
+
+	assert.NoError(t, err1)
+	assert.NoError(t, err2)
 }

@@ -11,6 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// IndexYAML represents the structure of a Helm repository index.yaml file.
 type IndexYAML struct {
 	Entries map[string][]struct {
 		Version     string   `yaml:"version"`

@@ -157,7 +157,7 @@ func TestVersionFetcher_FetchChartVersions(t *testing.T) {
 	t.Logf("Latest version: %s (App: %s)", versions[0].ChartVersion, versions[0].AppVersion)
 }
 
-func mockFetchIndexYAML(repoURL string) (*IndexYAML, error) {
+func mockFetchIndexYAML(_ string) (*IndexYAML, error) {
 	return &IndexYAML{
 		Entries: map[string][]struct {
 			Version     string   `yaml:"version"`
@@ -173,7 +173,7 @@ func mockFetchIndexYAML(repoURL string) (*IndexYAML, error) {
 	}, nil
 }
 
-func mockFetchIndexYAML_Empty(repoURL string) (*IndexYAML, error) {
+func mockFetchIndexYAMLEmpty(_ string) (*IndexYAML, error) {
 	return &IndexYAML{Entries: map[string][]struct {
 		Version     string   `yaml:"version"`
 		AppVersion  string   `yaml:"appVersion"`
@@ -182,7 +182,7 @@ func mockFetchIndexYAML_Empty(repoURL string) (*IndexYAML, error) {
 	}{}}, nil
 }
 
-func mockFetchIndexYAML_NoChart(repoURL string) (*IndexYAML, error) {
+func mockFetchIndexYAMLNoChart(_ string) (*IndexYAML, error) {
 	return &IndexYAML{Entries: map[string][]struct {
 		Version     string   `yaml:"version"`
 		AppVersion  string   `yaml:"appVersion"`
@@ -193,7 +193,7 @@ func mockFetchIndexYAML_NoChart(repoURL string) (*IndexYAML, error) {
 	}}, nil
 }
 
-func mockFetchIndexYAML_Error(repoURL string) (*IndexYAML, error) {
+func mockFetchIndexYAMLError(_ string) (*IndexYAML, error) {
 	return nil, fmt.Errorf("mock error")
 }
 
@@ -212,7 +212,7 @@ func TestVersionFetcher_FetchLatestVersion(t *testing.T) {
 }
 
 func TestVersionFetcher_FetchLatestVersion_NoVersions(t *testing.T) {
-	vf := NewMockVersionFetcher(mockFetchIndexYAML_Empty)
+	vf := NewMockVersionFetcher(mockFetchIndexYAMLEmpty)
 	_, err := vf.FetchLatestVersion("mock", "airbyte")
 	if err == nil {
 		t.Error("Expected error for no versions")
@@ -232,7 +232,7 @@ func TestVersionFetcher_ValidateChartExists(t *testing.T) {
 }
 
 func TestVersionFetcher_ValidateChartExists_NotFound(t *testing.T) {
-	vf := NewMockVersionFetcher(mockFetchIndexYAML_NoChart)
+	vf := NewMockVersionFetcher(mockFetchIndexYAMLNoChart)
 	err := vf.ValidateChartExists("mock", "airbyte")
 	if err == nil {
 		t.Error("Expected error for non-existent chart")
@@ -244,7 +244,7 @@ func TestVersionFetcher_ValidateChartExists_NotFound(t *testing.T) {
 }
 
 func TestVersionFetcher_ListCharts_Error(t *testing.T) {
-	vf := NewMockVersionFetcher(mockFetchIndexYAML_Error)
+	vf := NewMockVersionFetcher(mockFetchIndexYAMLError)
 	_, err := vf.ListCharts("mock")
 	if err == nil {
 		t.Error("Expected error from mock fetchIndexYAML in ListCharts")
@@ -252,7 +252,7 @@ func TestVersionFetcher_ListCharts_Error(t *testing.T) {
 }
 
 func TestVersionFetcher_FetchChartVersions_Error(t *testing.T) {
-	vf := NewMockVersionFetcher(mockFetchIndexYAML_Error)
+	vf := NewMockVersionFetcher(mockFetchIndexYAMLError)
 	_, err := vf.FetchChartVersions("mock", "airbyte")
 	if err == nil {
 		t.Error("Expected error from mock fetchIndexYAML in FetchChartVersions")
@@ -260,7 +260,7 @@ func TestVersionFetcher_FetchChartVersions_Error(t *testing.T) {
 }
 
 func TestVersionFetcher_ValidateChartExists_Error(t *testing.T) {
-	vf := NewMockVersionFetcher(mockFetchIndexYAML_Error)
+	vf := NewMockVersionFetcher(mockFetchIndexYAMLError)
 	err := vf.ValidateChartExists("mock", "airbyte")
 	if err == nil {
 		t.Error("Expected error from mock fetchIndexYAML in ValidateChartExists")
@@ -268,7 +268,7 @@ func TestVersionFetcher_ValidateChartExists_Error(t *testing.T) {
 }
 
 func TestVersionFetcher_FetchLatestVersion_Error(t *testing.T) {
-	vf := NewMockVersionFetcher(mockFetchIndexYAML_Error)
+	vf := NewMockVersionFetcher(mockFetchIndexYAMLError)
 	_, err := vf.FetchLatestVersion("mock", "airbyte")
 	if err == nil {
 		t.Error("Expected error from mock fetchIndexYAML in FetchLatestVersion")
