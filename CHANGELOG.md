@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/EffectiveSloth/flux-app-generator/compare/v1.1.0...v1.2.0) (2025-07-11)
+
+
+### Features
+
+* add k8s auto-completion ([#9](https://github.com/EffectiveSloth/flux-app-generator/issues/9)) ([184f0a2](https://github.com/EffectiveSloth/flux-app-generator/commit/184f0a238c0bcfc7373aa71fad2be4318d178b95))
+
 ## [1.1.0](https://github.com/EffectiveSloth/flux-app-generator/compare/v1.0.0...v1.1.0) (2025-07-10)
 
 
